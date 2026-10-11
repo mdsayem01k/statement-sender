@@ -1,0 +1,24 @@
+.app-nav {
+    display: flex;
+    gap: 4px;
+    background: #1C1C1E;
+    padding: 0 24px;
+  }
+  
+  .app-nav a {
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 14px 12px;
+    border-bottom: 2px solid transparent;
+  }
+  
+  .app-nav a:hover {
+    color: #fff;
+  }
+  
+  .app-nav a.active {
+    color: #fff;
+    border-bottom-color: #E4002B;
+  }

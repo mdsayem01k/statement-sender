@@ -1,0 +1,48 @@
+{
+  "TRADE_CONFIRMATION": {
+    "text": "Thank you for choosing City Brokerage Ltd. Today’s Trade Confirmation for {{investor}} : {{url}}",
+    "email": {
+      "subject": "Trade Confirmation - City Brokerage Limited",
+      "html": "<p>Thanks for connecting with City Brokerage Limited.</p><p><strong>Trade Confirmation ID:</strong> {{investor}}</p><p>You can view your trade confirmation details here: <a href=\"{{url}}\">{{url}}</a></p>"
+    }
+  },
+  "PORTFOLIO": {
+    "text": "Thank you for choosing City Brokerage Ltd. Your portfolio statement for {{investor}} : {{url}}",
+    "email": {
+      "subject": "Portfolio Statement - City Brokerage Limited",
+      "html": "<p>Thanks for connecting with City Brokerage Limited.</p><p><strong>Portfolio ID:</strong> {{investor}}</p><p>View your portfolio statement here: <a href=\"{{url}}\">{{url}}</a></p>"
+    }
+  },
+  "RECEIPT": {
+    "text": "Thank you for choosing City Brokerage Ltd. We have received your deposit of {{amount}} BDT. Receipt: {{url}}",
+    "email": {
+      "subject": "Deposit Receipt - City Brokerage Limited",
+      "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>We received your deposit of <strong>{{amount}} BDT</strong>.</p><p>Receipt: <a href=\"{{url}}\">{{url}}</a></p>"
+    }
+  },
+  "RECEIPTREQ": {
+    "text": "Thank you for choosing City Brokerage Ltd. We have received your Deposit amount request of BDT {{amount}} for Investor {{Investor}}.",
+    "textRM": "Thank you for choosing City Brokerage Ltd. We have received your Deposit amount request of BDT {{amount}} for Investor {{Investor}} (request landing at Web Portal).",
+
+    "email": {
+      "subject": "Payment Receipt - City Brokerage Limited",
+      "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>We received your payment of <strong>{{amount}} BDT</strong>.</p><p>Receipt: <a href=\"{{url}}\">{{url}}</a></p>"
+    }
+  },
+  "PAYMENT": {
+    "text": "Thank you for choosing City Brokerage Ltd.We have received your withdrawal amount request of BDT {{amount}} for Investor {{Investor}}.",
+    "textRM": "Thank you for choosing City Brokerage Ltd. We have received your Deposit amount request of BDT {{amount}} for Investor {{Investor}} (request landing at Web Portal).",
+
+    "email": {
+      "subject": "Payment Receipt - City Brokerage Limited",
+      "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>We received your payment of <strong>{{amount}} BDT</strong>.</p><p>Receipt: <a href=\"{{url}}\">{{url}}</a></p>"
+    }
+  },
+  "BO_REGISTRATION": {
+    "text": "Thank you for choosing City Brokerage Ltd. Your BO registration submission successfully: {{url}}",
+    "email": {
+      "subject": "BO Registration Submitted - City Brokerage Limited",
+      "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>Your BO registration was submitted successfully.</p><p>View your application: <a href=\"{{url}}\">{{url}}</a></p>"
+    }
+  }
+}
