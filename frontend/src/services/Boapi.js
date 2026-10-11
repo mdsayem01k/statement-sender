@@ -1,6 +1,6 @@
 // Calls your Node API and returns { sections, documents, applicantSignature }.
 // Change API_BASE / the path to match your server (your log shows port 4000).
-const API_BASE = "http://localhost:4000";
+const API_BASE = "https://statements.citybrokerageltd.com";
 
 export async function fetchBoApplication(id, { signal } = {}) {
   const res = await fetch(`${API_BASE}/api/bo-registrations/${encodeURIComponent(id)}/application`, {

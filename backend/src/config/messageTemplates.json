@@ -1,6 +1,6 @@
 {
   "TRADE_CONFIRMATION": {
-    "text": "Thank you for choosing City Brokerage Ltd. Today’s Trade Confirmation for {{investor}} : {{url}}",
+    "text": "Thank you for choosing City Brokerage Ltd. Today’s Trade Confirmation for investor {{investor}} : {{url}}",
     "email": {
       "subject": "Trade Confirmation - City Brokerage Limited",
       "html": "<p>Thanks for connecting with City Brokerage Limited.</p><p><strong>Trade Confirmation ID:</strong> {{investor}}</p><p>You can view your trade confirmation details here: <a href=\"{{url}}\">{{url}}</a></p>"

@@ -1,38 +1,235 @@
 const fs = require('fs');
 const path = require('path');
 
-const folderName = (date) => {
-  const d = new Date(date);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr',
+  'May', 'Jun', 'Jul', 'Aug',
+  'Sep', 'Oct', 'Nov', 'Dec'
+];
 
-// Finds a client's PDF on disk. The ONLY things that differ between
-// trade confirmation and portfolio are these 3 settings.
-class PdfLocator {
-  constructor({ networkDir, localRoot, filePrefix }) {
-    this.networkDir = networkDir;   // flat share where the PDFs are produced
-    this.localRoot = localRoot;     // local copy, one YYYY-MM-DD folder per day
-    this.filePrefix = filePrefix;   // 'ConfirmationNote_' -> ConfirmationNote_0453.pdf
+function dateKey(value) {
+  if (value === null || value === undefined || value === '') {
+    throw new Error('PDF document date is missing');
   }
 
-  fileNameFor(code) { return path.basename(`${this.filePrefix}${code}.pdf`); }
-  todayFolder() { return folderName(new Date()); }
-  dayFolder(date) { return folderName(date); }
+  let year;
+  let month;
+  let day;
 
-  // Checks: local folder of the day the url code was created -> today's local folder -> network share
+  if (typeof value === 'string') {
+    const match = value.match(
+      /^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/
+    );
+
+    if (match) {
+      year = Number(match[1]);
+      month = Number(match[2]);
+      day = Number(match[3]);
+    }
+  }
+
+  if (year === undefined) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new Error('Invalid PDF document date');
+    }
+
+    year = date.getUTCFullYear();
+    month = date.getUTCMonth() + 1;
+    day = date.getUTCDate();
+  }
+
+  const validated = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    validated.getUTCFullYear() !== year ||
+    validated.getUTCMonth() + 1 !== month ||
+    validated.getUTCDate() !== day
+  ) {
+    throw new Error('Invalid PDF document date');
+  }
+
+  return [
+    String(year).padStart(4, '0'),
+    String(month).padStart(2, '0'),
+    String(day).padStart(2, '0')
+  ].join('-');
+}
+
+function todayKey() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(
+    parts.map(part => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+class PdfLocator {
+  constructor({
+    networkDir,
+    localRoot,
+    filePrefix,
+    archiveRoot = null
+  }) {
+    this.networkDir = networkDir;
+    this.localRoot = localRoot;
+    this.filePrefix = filePrefix;
+    this.archiveRoot =
+      typeof archiveRoot === 'string'
+        ? archiveRoot.trim()
+        : null;
+  }
+
+  fileNameFor(code) {
+    const investorCode = String(code ?? '').trim();
+
+    if (
+      !investorCode ||
+      /[\\/:*?"<>|]/.test(investorCode)
+    ) {
+      throw new Error('Invalid investor code for PDF lookup');
+    }
+
+    return path.basename(
+      `${this.filePrefix}${investorCode}.pdf`
+    );
+  }
+
+  todayFolder() {
+    return todayKey();
+  }
+
+  dayFolder(date) {
+    return dateKey(date);
+  }
+
+  archiveFolder(date) {
+    const [year, month, day] = dateKey(date).split('-');
+
+    const monthFolder =
+      `${MONTHS[Number(month) - 1]}-${year}`;
+
+    const dayFolder = `${day}${month}${year}`;
+
+    return path.join(monthFolder, dayFolder);
+  }
+
   locate(code, insertDate = null) {
-    const name = this.fileNameFor(code);
     const checkedPaths = [];
+    const errors = [];
+
+    if (
+      insertDate === null ||
+      insertDate === undefined ||
+      insertDate === ''
+    ) {
+      return {
+        filePath: null,
+        source: null,
+        checkedPaths,
+        errors: ['PDF document date is missing']
+      };
+    }
+
+    const name = this.fileNameFor(code);
+    const documentDate = this.dayFolder(insertDate);
     const candidates = [];
-    if (insertDate) candidates.push([path.join(this.localRoot, this.dayFolder(insertDate), name), 'local-original-date']);
-    candidates.push([path.join(this.localRoot, this.todayFolder(), name), 'local-today']);
-    candidates.push([path.join(this.networkDir, name), 'network']);
+
+    if (this.archiveRoot) {
+      candidates.push([
+        path.join(
+          this.archiveRoot,
+          this.archiveFolder(insertDate),
+          name
+        ),
+        'archive-original-date'
+      ]);
+    } else {
+      errors.push('PDF archive root is not configured');
+    }
+
+    if (this.localRoot) {
+      candidates.push([
+        path.join(
+          this.localRoot,
+          documentDate,
+          name
+        ),
+        'local-original-date'
+      ]);
+    }
+
+    if (
+      this.networkDir &&
+      documentDate === this.todayFolder()
+    ) {
+      candidates.push([
+        path.join(this.networkDir, name),
+        'network-today'
+      ]);
+    }
 
     for (const [filePath, source] of candidates) {
       checkedPaths.push(filePath);
-      if (fs.existsSync(filePath)) return { filePath, source, checkedPaths };
+
+      try {
+        const stats = fs.statSync(filePath);
+
+        if (!stats.isFile()) {
+          errors.push(`Not a file: ${filePath}`);
+          continue;
+        }
+
+        fs.accessSync(filePath, fs.constants.R_OK);
+
+        return {
+          filePath,
+          source,
+          checkedPaths,
+          errors
+        };
+      } catch (error) {
+        const detail =
+          `${error.code || 'FILE_ERROR'}: ${filePath}`;
+
+        errors.push(detail);
+
+        if (
+          error.code !== 'ENOENT' &&
+          error.code !== 'ENOTDIR'
+        ) {
+          console.error('[PDF ACCESS ERROR]', {
+            filePath,
+            error: error.message,
+            code: error.code
+          });
+        }
+      }
     }
-    return { filePath: null, source: null, checkedPaths };
+
+    console.error('[PDF NOT FOUND]', {
+      investorCode: code,
+      documentDate,
+      archiveRoot: this.archiveRoot,
+      filePrefix: this.filePrefix,
+      checkedPaths,
+      errors
+    });
+
+    return {
+      filePath: null,
+      source: null,
+      checkedPaths,
+      errors
+    };
   }
 }
 

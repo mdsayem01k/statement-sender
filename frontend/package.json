@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:uat": "vite build --mode uat",
+    "build:live": "vite build --mode production"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

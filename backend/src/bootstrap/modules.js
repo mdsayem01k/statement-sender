@@ -15,7 +15,7 @@ function buildRegistry(ctx) {
   return new ModuleRegistry()
     .register(new TradeConfirmationModule(ctx))
     .register(new PortfolioModule(ctx))
-    .register(new DepositReqModule(ctx))
+    // .register(new DepositReqModule(ctx))
     // .register(new DepositModule(ctx))
     // .register(new BoRegistrationModule(ctx));
     // .register(new PaymentModule(ctx));                  // <- uncomment to switch Payment on

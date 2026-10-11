@@ -55,15 +55,62 @@ class PortfolioMapRepository {
   // Newest url code for an investor + where to reach them.
   // TODO: portfolioMap has no mobile / email column yet, so the test values from env are used (as before).
   // Replace the two env values with a real lookup when a contact table exists.
-  async findContactByCode(code) {
-    const { sql } = Db;
-    const p = await Db.pool();
-    const r = await p.request().input('code', sql.VarChar(100), code)
-      .query('SELECT TOP 1 code AS investor, urlcode AS encrypto_code FROM portfolioMap WHERE code = @code ORDER BY insert_date DESC');
-    const row = r.recordset[0];
-    if (!row) return null;
-    return { ...row, mobile: env.whatsapp.defaultTestMobile, email: env.mail.defaultNotificationEmail };
+
+async ContactInfo(code) {
+  const { sql } = Db;
+  const p = await Db.pool('XBpoolPromise');
+
+  const r = await p.request()
+    .input('code', sql.VarChar(100), String(code).trim())
+    .query(`
+      SELECT
+        '01894623348' AS mobile,
+        'Email' AS email
+      FROM dbo.Setup_tblInvestor
+      WHERE InvestorCode = @code
+    `);
+
+  return r.recordset[0] || null;
+}
+
+async findContactByCode(code) {
+  const { sql } = Db;
+  const p = await Db.pool();
+  const investorCode = String(code).trim();
+
+  console.log('sent to sms: ',code);
+
+  const r = await p.request()
+    .input('code', sql.VarChar(100), investorCode)
+    .query(`
+      SELECT TOP 1
+        code AS investor,
+        urlcode AS encrypto_code
+      FROM dbo.portfolioMap
+      WHERE code = @code
+      ORDER BY insert_date DESC
+    `);
+
+  const row = r.recordset[0];
+
+  if (!row) {
+    return null;
   }
+
+  const contact = await this.ContactInfo(investorCode);
+
+  if (!contact) {
+    throw new Error(
+      `Investor ${investorCode} was not found in Setup_tblInvestor`
+    );
+  }
+
+  return {
+    ...row,
+    mobile: String(contact.mobile || '').split(',')[0].trim(),
+    email: String(contact.email || '').split(',')[0].trim()
+  };
+}
 }
 
 module.exports = PortfolioMapRepository;
