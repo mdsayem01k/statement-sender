@@ -9,13 +9,13 @@ class UrlCodeMapService {
 
   async createEntry(clientCode) {
     const urlcode = generateShortUrlCode(clientCode, 20);
-    await this.repository.insert({ code: clientCode, urlcode, documentFilename: this.locator.fileNameFor(clientCode) });
-    return urlcode;
+    return this.repository.insert({ code: clientCode, urlcode, documentFilename: this.locator.fileNameFor(clientCode) });
   }
 
   async processSchedule(scheduleID = 2) {
     const results = [];
-    for (const clientCode of await this.repository.expectedClientCodes(scheduleID)) {
+    const codes = [...new Set((await this.repository.expectedClientCodes(scheduleID)).map(code => String(code ?? '').trim()).filter(Boolean))];
+    for (const clientCode of codes) {
       results.push({ clientCode, urlcode: await this.createEntry(clientCode) });
     }
     return results;

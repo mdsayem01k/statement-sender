@@ -14,14 +14,51 @@ class PortfolioMapRepository {
 
   async insert({ code, urlcode, name = null, documentFilename }) {
     const { sql } = Db;
-    const p = await Db.pool();
-    await p.request()
-      .input('code', sql.VarChar(50), code)
+    const pool = await Db.pool();
+    const result = await pool.request()
+      .input('code', sql.VarChar(50), String(code).trim())
       .input('urlcode', sql.VarChar(255), urlcode)
       .input('name', sql.VarChar(255), name)
       .input('documentFilename', sql.VarChar(255), documentFilename)
-      .query(`INSERT INTO portfoliomap (code, urlcode, name, document_filename, insert_date)
-              VALUES (@code, @urlcode, @name, @documentFilename, GETDATE())`);
+      .query(`
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+        BEGIN TRY
+          BEGIN TRANSACTION;
+          DECLARE @documentDate DATE = CONVERT(DATE, GETDATE());
+          DECLARE @resource NVARCHAR(255) = CONCAT('PDFMAP_GENERATE:', CONVERT(VARCHAR(10), @documentDate, 23));
+          DECLARE @lockResult INT;
+          EXEC @lockResult = sys.sp_getapplock
+            @Resource = @resource,
+            @LockMode = 'Exclusive',
+            @LockOwner = 'Transaction',
+            @LockTimeout = 10000;
+          IF @lockResult < 0 THROW 50002, 'Unable to acquire URL-generation lock.', 1;
+          DECLARE @existing VARCHAR(255);
+          SELECT TOP 1 @existing = urlcode
+          FROM dbo.portfolioMap
+          WHERE code = @code
+            AND insert_date >= @documentDate
+            AND insert_date < DATEADD(DAY, 1, @documentDate)
+          ORDER BY insert_date DESC, urlcode ASC;
+          IF @existing IS NULL
+          BEGIN
+            INSERT INTO dbo.portfolioMap
+              (code, urlcode, name, document_filename, insert_date)
+            VALUES
+              (@code, @urlcode, @name, @documentFilename, @documentDate);
+            SET @existing = @urlcode;
+          END;
+          COMMIT TRANSACTION;
+          SELECT @existing AS urlcode;
+        END TRY
+        BEGIN CATCH
+          IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+          THROW;
+        END CATCH;
+      `);
+    if (!result.recordset?.[0]?.urlcode) throw new Error('URL generation returned no mapping');
+    return result.recordset[0].urlcode;
   }
 
   // code + insert_date (needed to find the right dated folder)
@@ -64,8 +101,8 @@ async ContactInfo(code) {
     .input('code', sql.VarChar(100), String(code).trim())
     .query(`
       SELECT
-        '01894623348' AS mobile,
-        'Email' AS email
+        cellno as mobile,
+        email as email
       FROM dbo.Setup_tblInvestor
       WHERE InvestorCode = @code
     `);
@@ -73,7 +110,7 @@ async ContactInfo(code) {
   return r.recordset[0] || null;
 }
 
-async findContactByCode(code) {
+async findContactByCode(code, urlcode = null) {
   const { sql } = Db;
   const p = await Db.pool();
   const investorCode = String(code).trim();
@@ -82,13 +119,15 @@ async findContactByCode(code) {
 
   const r = await p.request()
     .input('code', sql.VarChar(100), investorCode)
+    .input('urlcode', sql.VarChar(255), urlcode)
     .query(`
       SELECT TOP 1
         code AS investor,
         urlcode AS encrypto_code
       FROM dbo.portfolioMap
       WHERE code = @code
-      ORDER BY insert_date DESC
+        AND (@urlcode IS NULL OR urlcode = @urlcode)
+      ORDER BY insert_date DESC, urlcode ASC
     `);
 
   const row = r.recordset[0];
@@ -104,7 +143,7 @@ async findContactByCode(code) {
       `Investor ${investorCode} was not found in Setup_tblInvestor`
     );
   }
-
+  console.log('sent sms to this num:',contact.mobile);
   return {
     ...row,
     mobile: String(contact.mobile || '').split(',')[0].trim(),

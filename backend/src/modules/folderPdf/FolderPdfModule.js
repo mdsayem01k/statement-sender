@@ -134,10 +134,15 @@ class FolderPdfModule extends PdfDocumentModule {
     if (!vias) return res.status(400).json({ success: false, message: 'via must be mobile, email or all' });
 
     const who = { clientIp: req.ip, userAgent: req.get('user-agent') };
-    const contact = await this.repository.findContactByCode(code);
+    const rawUrlcode = req.query.urlcode ?? req.body?.urlcode;
+    const urlcode = rawUrlcode == null ? null : String(rawUrlcode).trim();
+    if (urlcode !== null && !/^[A-Za-z0-9_-]{6,128}$/.test(urlcode)) {
+      throw new HttpError(400, 'Invalid document URL code');
+    }
+    const contact = await this.repository.findContactByCode(code, urlcode);
     if (!contact) {
       await this.ctx.audit.save({ ...who, resolvedCode: code, status: 'FAILED', statusCode: 404, errorMessage: 'Portfolio mapping not found' });
-      throw new HttpError(404, 'Portfolio mapping not found for this code.');
+      throw new HttpError(404, 'Document mapping not found for this investor and URL code.');
     }
 
     const recipient = { mobile: contact.mobile, email: contact.email, name: contact.investor };

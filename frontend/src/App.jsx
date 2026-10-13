@@ -109,6 +109,11 @@ function Table({ rows, columns }) {
 
 function ModulePage({ routes }) {
   const { slug } = useParams();
+  return <ModulePageContent key={slug} routes={routes} />;
+}
+
+function ModulePageContent({ routes }) {
+  const { slug } = useParams();
   const module = modules.find(item => item.slug === slug);
 
   const [code, setCode] = useState('');
@@ -198,7 +203,7 @@ function ModulePage({ routes }) {
     try {
       const channels = await sendNotification(
         module,
-        row.investorCode,
+        row,
         via
       );
 
@@ -543,6 +548,18 @@ function Logs({ routes, daily = false }) {
       label: 'Role / IP',
       render: row =>
         `${row.recipient_role || '—'} / ${row.client_ip || '—'}`
+    },  
+    {
+      label: 'Device',
+      render: row => row.device_type || '—'
+    },
+    {
+      label: 'Operating system',
+      render: row => row.os_name || '—'
+    },
+    {
+      label: 'Browser',
+      render: row => row.browser_name || '—'
     },
     {
       label: 'Details',

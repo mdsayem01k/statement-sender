@@ -99,6 +99,7 @@ class MessageCenter {
         throw new Error(`Unknown delivery type: ${via}`);
       }
 
+      // const chain = this.chains[via];
       const chain =
         type === 'TRADE_CONFIRMATION' && via === 'MOBILE'
           ? configuredChain.filter(

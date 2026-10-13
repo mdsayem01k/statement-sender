@@ -7,32 +7,66 @@ const norm = (v) => String(v ?? '').trim().toUpperCase();
 // Deposit = Payments_tblDepositRequisition. Existing table names are kept.
 class ChequeRepository extends ReceiptRepository {
   constructor() {
-    super({
-      syncTable: 'dbo.ChequePayments_Sync',
-      notificationTable: 'dbo.ChequeNotification',
-      idColumn: 'ChequeID',
-      sourcePool: 'BOpoolPromise',          // same DB as Payments_tblPaymentRequsition. Change if wrong.
-    });
-    this.rmRepo = new RmRepository();
-  }
+  super({
+    syncTable: 'dbo.WithdrawalRequest_Sync',
+    notificationTable: 'dbo.WithdrawalRequestNotification',
+    idColumn: 'RequisitionID',
+    sourcePool: 'BOpoolPromise'
+  });
+
+  this.rmRepo = new RmRepository();
+}
 
   async fetchNewFromSource(afterId) {
-    const { sql } = Db;
-    const p = await Db.pool(this.sourcePool);
-    const r = await p.request().input('last', sql.Int, afterId).query(`
-SELECT d.RecordID AS ChequeID,                -- <-- replace RecordID with the real id column
-       d.InvestorID, d.InvestorCode, d.InvestorName,
-       d.ReceiveDate, d.Amount,
-       'BO PORTAL' AS Descriptions,
-       NULL AS ReferenceNumber,
-       d.ReceiveDate AS SourceInTimestamp
-FROM dbo.Payments_tblDepositRequisition d
-WHERE d.RecordID > @last                      -- <-- same id column
-ORDER BY d.RecordID`);
+  const since = String(
+    process.env.PAYMENT_SYNC_SINCE || ''
+  ).trim();
 
-    const enriched = await this.attachInvestorInfo(r.recordset);  // XB: CellNo, Email, Trader
-    return this.rmRepo.attach(enriched);                          // poolPromise: RmMobile, RmEmail
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(since)
+  ) {
+    throw new Error(
+      'Set PAYMENT_SYNC_SINCE to YYYY-MM-DDTHH:mm:ss just before the first unsent withdrawal request.'
+    );
   }
+
+  const { sql } = Db;
+  const pool = await Db.pool(this.sourcePool);
+
+  const result = await pool.request()
+    .input('last', sql.Int, afterId)
+    .input('since', sql.VarChar(19), since)
+    .query(`
+      SELECT
+        d.RecordID AS RequisitionID,
+        d.InvestorID,
+        d.InvestorCode,
+        d.RequisitionDate AS ReceiveDate,
+        d.RequisitionAmount AS Amount,
+        'WITHDRAWAL REQUEST' AS Descriptions,
+        NULL AS ReferenceNumber,
+        d.InTimeStamp AS SourceInTimestamp
+      FROM dbo.Payments_tblPaymentRequsition d
+      WHERE d.RecordID > @last
+        AND COALESCE(d.InTimeStamp, d.RequisitionDate)
+            >= CONVERT(DATETIME2, @since, 126)
+      ORDER BY d.RecordID
+    `);
+
+  console.log('[PAYMENT SOURCE]', {
+    sourcePool: this.sourcePool,
+    sourceTable: 'dbo.Payments_tblPaymentRequsition',
+    lastId: afterId,
+    since,
+    fetched: result.recordset.length
+  });
+
+  const enriched = await this.attachInvestorInfo(
+    result.recordset
+  );
+
+  return this.rmRepo.attach(enriched);
+}
 
   // investor code -> CellNo, Email, Trader, from the XB database
   async attachInvestorInfo(rows) {

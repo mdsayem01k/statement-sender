@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { request, csvDownload } from '../services/api';
 import {
   uniqueTargets,
@@ -25,6 +25,15 @@ export default function ActionToolbar({
   const [commandResult, setCommandResult] = useState(null);
 
   const cancel = useRef(false);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      cancel.current = true;
+    };
+  }, []);
 
   const supports = (method, path) =>
     routes.some(
@@ -105,6 +114,7 @@ export default function ActionToolbar({
               }
             );
 
+      if (!mounted.current) return;
       setCommandResult(data);
 
       if (
@@ -134,10 +144,10 @@ export default function ActionToolbar({
         await reload();
       }
     } catch (error) {
-      setError(error.message);
+      if (mounted.current) setError(error.message);
     } finally {
       operationLock.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
 
@@ -154,7 +164,7 @@ export default function ActionToolbar({
           : 'mobile and email';
 
     const confirmed = window.confirm(
-      `Send ${module.name} via ${channel} to ${targets.length} unique investors from ALL loaded rows, including other table pages? ${rows.length - targets.length} duplicate or empty codes are excluded. The backend uses each investor's latest mapping and configured recipients, including test overrides.`
+      `Send ${module.name} via ${channel} to ${targets.length} unique documents from ALL loaded rows, including other table pages? ${rows.length - targets.length} duplicate documents or empty investor codes are excluded. Each notification uses the selected document link and backend-configured recipients, including test overrides.`
     );
 
     if (!confirmed) {
@@ -179,19 +189,20 @@ export default function ActionToolbar({
 
     try {
       for (const row of targets) {
-        if (cancel.current) {
+        if (cancel.current || !mounted.current) {
           break;
         }
 
         try {
           const channels = await sendNotification(
             module,
-            row.investorCode,
+            row,
             via
           );
 
           completed.push({
             investorCode: row.investorCode,
+            documentUrl: row.url,
             via,
             status: 'sent',
             channels,
@@ -200,6 +211,7 @@ export default function ActionToolbar({
         } catch (error) {
           completed.push({
             investorCode: row.investorCode,
+            documentUrl: row.url,
             via,
             status: 'error',
             channels: '',
@@ -207,6 +219,7 @@ export default function ActionToolbar({
           });
         }
 
+        if (!mounted.current) break;
         setResults([...completed]);
 
         setProgress({
@@ -216,6 +229,7 @@ export default function ActionToolbar({
         });
       }
 
+      if (!mounted.current) return;
       const failed = completed.filter(
         result => result.status === 'error'
       ).length;
@@ -224,14 +238,11 @@ export default function ActionToolbar({
         `${cancel.current ? 'Stopped' : 'Finished'}: ${completed.length - failed} successful, ${failed} with errors, ${targets.length - completed.length} not attempted. Review errors before retrying; partial delivery may have occurred.`
       );
     } finally {
-      setProgress({
-        done: completed.length,
-        total: targets.length,
-        running: false
-      });
-
       operationLock.current = false;
-      setBusy(false);
+      if (mounted.current) {
+        setProgress({ done: completed.length, total: targets.length, running: false });
+        setBusy(false);
+      }
     }
   }
 
@@ -371,7 +382,7 @@ export default function ActionToolbar({
 
               <tbody>
                 {results.map(result => (
-                  <tr key={result.investorCode}>
+                  <tr key={JSON.stringify([result.investorCode, result.documentUrl])}>
                     <td>{result.investorCode}</td>
                     <td>{result.status}</td>
                     <td>{result.channels || '—'}</td>

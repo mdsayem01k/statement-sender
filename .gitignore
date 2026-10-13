@@ -17,6 +17,7 @@ env.js
 # Build output
 dist/
 build/
+storage/
 
 # Logs
 npm-debug.log*

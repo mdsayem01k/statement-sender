@@ -1,16 +1,21 @@
 const { generateShortUrlCode } = require('../utils/urlCode');
 const { HttpError } = require('./errors');
+const DeliveryLedger = require('../services/DeliveryLedger');
 
 // Background job:  1) syncSource()  copy new rows from the source DB + give each a url code
 //                  2) sendPending() send WhatsApp -> SMS fallback, and email, for every unsent row
 // The flow is written once. A subclass supplies the 4 hooks marked "implement".
 class NotificationJob {
   constructor({ name, type, repository, ctx, link, intervalMin = 1, notifySince = null,
-                batchSize = 50, maxRetry = 5, emailEnabled = ctx.env.notify.emailEnabled }) {
+                batchSize = 50, maxRetry = 5, emailEnabled = ctx.env.notify.emailEnabled, deliveryLedger = null }) {
     this.name = name;
     this.type = type;                 // message template key
     this.repository = repository;
     this.messageCenter = ctx.messageCenter;
+    this.deliveryLedger = deliveryLedger || new DeliveryLedger({
+      poolName: repository.poolName || 'poolPromise',
+      module: `${type}:${repository.table || name}`
+    });
     this.link = link;                 // (urlCode) => full URL
     this.intervalMs = intervalMin * 60 * 1000;
     this.notifySince = notifySince;
@@ -47,7 +52,7 @@ class NotificationJob {
   async sendPending() {
     const rows = await this.repository.findUnsent({
       limit: this.batchSize, maxRetry: this.maxRetry, since: this.notifySince,
-      includeRm: this.notifyRm, emailEnabled: this.emailEnabled,
+      includeRm: this.notifyRm, emailEnabled: this.emailEnabled, deliveryModule: this.deliveryLedger.module,
     });
     const done = await this.repository.doneRecipients(rows.map((r) => r.Id), this.maxRetry); // extra recipients already finished
     const stats = { whatsapp: 0, sms: 0, email: 0, failed: 0 };
@@ -71,26 +76,74 @@ class NotificationJob {
     return stats;
   }
 
+  async persistSent(row, via, role, channel) {
+    if (role === 'INVESTOR') await this.repository.markSent(row.Id, via, channel);
+    else await this.repository.markRecipientSent(row.Id, role, via, channel);
+  }
+
   async deliver(row, via, recipient, stats) {
     const role = recipient.role || 'INVESTOR';
+    const payload = {
+      type: this.type,
+      via,
+      recipient,
+      data: this.buildData(row),
+      meta: { ...this.buildMeta(row), recipientRole: role }
+    };
+    const claim = await this.deliveryLedger.claim(row.Id, role, via);
+    if (!claim.allowed) {
+      stats.skipped = (stats.skipped || 0) + 1;
+      if (claim.state === 'ACCEPTED' || claim.state === 'SENT') {
+        try {
+          await this.persistSent(row, via, role, claim.channel);
+          return { via, ok: true, skipped: true, channel: claim.channel };
+        } catch (error) {
+          console.error(`[${this.name} PERSIST] accepted delivery needs reconciliation:`, error.message);
+          return { via, ok: true, skipped: true, channel: claim.channel, persistenceError: error.message };
+        }
+      }
+      return { via, ok: false, skipped: true, state: claim.state, error: `Delivery is ${claim.state}; no duplicate send attempted.` };
+    }
+
+    let delivered;
     try {
-      const r = await this.messageCenter.send({
-        type: this.type, via, recipient, data: this.buildData(row), meta: { ...this.buildMeta(row), recipientRole: role },
-      });
-      if (role === 'INVESTOR') await this.repository.markSent(row.Id, via, r.channel);
-      else await this.repository.markRecipientSent(row.Id, role, via, r.channel);
-      stats[r.channel.toLowerCase()]++;
-      return { via, ok: true, channel: r.channel, messageText: r.messageText };
-    } catch (err) {
-      if (role === 'INVESTOR') await this.repository.markFailed(row.Id, via, err.message);
-      else await this.repository.markRecipientFailed(row.Id, role, via, err.message);
+      delivered = await this.messageCenter.send(payload);
+    } catch (error) {
+      const definitelyRejected =
+        (error.statusCode === 400 && /^Invalid (mobile number|email address):/.test(error.message)) ||
+        (this.type === 'TRADE_CONFIRMATION' && via === 'MOBILE' && error.errorType === 'SMS_DAILY_LIMIT');
+      const state = definitelyRejected ? 'FAILED' : 'UNKNOWN';
+      try {
+        await this.deliveryLedger.record(claim, state, null, error.message);
+      } catch (persistenceError) {
+        console.error(`[${this.name} PERSIST] delivery outcome could not be saved:`, persistenceError.message);
+      }
+      if (definitelyRejected) {
+        try {
+          if (role === 'INVESTOR') await this.repository.markFailed(row.Id, via, error.message);
+          else await this.repository.markRecipientFailed(row.Id, role, via, error.message);
+        } catch (persistenceError) {
+          console.error(`[${this.name} PERSIST] failure flag could not be saved:`, persistenceError.message);
+        }
+      }
       stats.failed++;
-      console.error(`[${this.name} NOTIFY] ${role} ${via} failed for ${row.Id}:`, err.message);
-      return { via, ok: false, error: err.message };
+      console.error(`[${this.name} NOTIFY] ${role} ${via} ${state} for ${row.Id}:`, error.message);
+      return { via, ok: false, state, error: error.message };
+    }
+
+    const countKey = delivered.channel.toLowerCase();
+    stats[countKey] = (stats[countKey] || 0) + 1;
+    try {
+      await this.deliveryLedger.record(claim, 'ACCEPTED', delivered.channel);
+      await this.persistSent(row, via, role, delivered.channel);
+      await this.deliveryLedger.record(claim, 'SENT', delivered.channel);
+      return { via, ok: true, channel: delivered.channel, messageText: delivered.messageText };
+    } catch (error) {
+      console.error(`[${this.name} PERSIST] delivery accepted; automatic resend blocked:`, error.message);
+      return { via, ok: true, channel: delivered.channel, messageText: delivered.messageText, persistenceError: error.message };
     }
   }
 
-  // "Send now" from the UI for one row, whatever its flags say. via: 'mobile' | 'email' | 'all'
   async sendOne(id, via = 'all') {
     const row = await this.repository.findById(Number(id));
     if (!row) throw new HttpError(404, 'Record not found');

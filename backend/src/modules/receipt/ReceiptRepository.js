@@ -68,10 +68,11 @@ CREATE TABLE ${n} (
   }
 
   // RM still has a channel to receive: has a number / address and no finished NotificationRecipient row
-  extraPendingSql({ emailEnabled = true } = {}) {
+  extraPendingSql({ emailEnabled = true, deliveryModule = null } = {}) {
     const open = (ch) => `NOT EXISTS (SELECT 1 FROM dbo.NotificationRecipient r
       WHERE r.Module = @module AND r.NotificationID = n.${this.pk} AND r.Role = 'RM' AND r.Channel = '${ch}'
-        AND (r.IsSent = 1 OR r.RetryCount >= @maxRetry))`;
+        AND (r.IsSent = 1 OR r.RetryCount >= @maxRetry))
+      ${deliveryModule ? `AND NOT EXISTS (SELECT 1 FROM dbo.NotificationDelivery d WHERE d.Module = @deliveryModule AND d.NotificationID = CONVERT(NVARCHAR(100), n.${this.pk}) AND d.RecipientRole = 'RM' AND d.Via = '${ch}' AND d.State IN ('IN_FLIGHT', 'UNKNOWN', 'SENT'))` : ''}`;
     const parts = [`(ISNULL(s.RmMobile, '') <> '' AND ${open('MOBILE')})`];
     if (emailEnabled) parts.push(`(ISNULL(s.RmEmail, '') <> '' AND ${open('EMAIL')})`);
     return parts.join(' OR ');

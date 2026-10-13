@@ -1,19 +1,20 @@
 import { request } from './api';
 
+export function documentCode(row) {
+  const source = new URL(row.url, window.location.origin);
+  const code = source.searchParams.get('BOID');
+  if (!code || !/^[A-Za-z0-9_-]{6,128}$/.test(code)) throw new Error('The selected report has no valid document URL code.');
+  return code;
+}
+
 export function uniqueTargets(rows) {
   const targets = new Map();
-
   for (const row of rows) {
     const code = String(row.investorCode ?? '').trim();
-
-    if (code && !targets.has(code)) {
-      targets.set(code, {
-        ...row,
-        investorCode: code
-      });
-    }
+    if (!code) continue;
+    const key = JSON.stringify([code, row.url]);
+    if (!targets.has(key)) targets.set(key, { ...row, investorCode: code });
   }
-
   return [...targets.values()];
 }
 
@@ -42,9 +43,10 @@ export function deliveryResult(data) {
     .join(', ');
 }
 
-export async function sendNotification(module, code, via) {
+export async function sendNotification(module, row, via) {
   const data = await request(module.notify, {
-    code,
+    code: row.investorCode,
+    urlcode: documentCode(row),
     via
   });
 

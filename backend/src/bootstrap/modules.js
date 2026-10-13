@@ -18,7 +18,7 @@ function buildRegistry(ctx) {
     // .register(new DepositReqModule(ctx))
     // .register(new DepositModule(ctx))
     // .register(new BoRegistrationModule(ctx));
-    // .register(new PaymentModule(ctx));                  // <- uncomment to switch Payment on
+    .register(new PaymentModule(ctx));                  // <- uncomment to switch Payment on
 }
 
 module.exports = buildRegistry;

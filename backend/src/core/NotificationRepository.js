@@ -67,19 +67,24 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_${this.bare}_UrlCode' 
   // rows that still need something sent:
   //   the investor: WhatsApp/SMS (IsSentSms = 0) or email (IsSentEmail = 0), while RetryCount < maxRetry
   //   or an extra recipient (includeRm): see extraPendingSql(), with its own retry count
-  async findUnsent({ limit, maxRetry, since, includeRm = false, emailEnabled = true }) {
+  async findUnsent({ limit, maxRetry, since, includeRm = false, emailEnabled = true, deliveryModule = null }) {
     const { sql } = Db;
     const p = await this.pool();
+    const available = (role, via) => deliveryModule
+      ? `AND NOT EXISTS (SELECT 1 FROM dbo.NotificationDelivery d WHERE d.Module = @deliveryModule AND d.NotificationID = CONVERT(NVARCHAR(100), n.${this.pk}) AND d.RecipientRole = '${role}' AND d.Via = '${via}' AND d.State IN ('IN_FLIGHT', 'UNKNOWN', 'SENT'))`
+      : '';
     const investor = `n.RetryCount < @maxRetry AND (
-        (n.IsSentSms = 0 AND ISNULL(n.CellNo, '') <> '')
-        ${emailEnabled ? "OR (n.IsSentEmail = 0 AND ISNULL(n.Email, '') <> '')" : ''})`;
-    const extra = includeRm ? this.extraPendingSql({ emailEnabled }) : '';
+        (n.IsSentSms = 0 AND ISNULL(n.CellNo, '') <> '' ${available('INVESTOR', 'MOBILE')})
+        ${emailEnabled ? `OR (n.IsSentEmail = 0 AND ISNULL(n.Email, '') <> '' ${available('INVESTOR', 'EMAIL')})` : ''})`;
+    const extra = includeRm ? this.extraPendingSql({ emailEnabled, deliveryModule }) : '';
     const r = await p.request()
       .input('limit', sql.Int, limit)
       .input('maxRetry', sql.Int, maxRetry)
       .input('since', sql.DateTime, since)
       .input('module', sql.NVarChar(60), this.bare)
+      .input('deliveryModule', sql.NVarChar(160), deliveryModule)
       .query(`
+${deliveryModule ? "UPDATE dbo.NotificationDelivery SET State = 'UNKNOWN', Error = 'Delivery worker expired; reconcile before retrying.', UpdatedAt = SYSUTCDATETIME() WHERE Module = @deliveryModule AND State = 'IN_FLIGHT' AND LeaseUntil <= SYSUTCDATETIME();" : ''}
 SELECT TOP (@limit) ${this.columns()}
 FROM ${this.table} n ${this.join}
 WHERE n.UrlCode IS NOT NULL

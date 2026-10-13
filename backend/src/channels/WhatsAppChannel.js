@@ -12,7 +12,7 @@ class WhatsAppChannel extends Channel {
     return !!toIntl(recipient.mobile);
   }
 
-  async send({ recipient, text, isAcc }) {
+  async send({ type, recipient, text, isAcc }) {
   const { baseUrl, sessionId, timeoutMs } = this.config;
   const response = await axios.post(
     `${baseUrl}/BT/api/whatsapp/send-text`,
@@ -24,11 +24,15 @@ class WhatsAppChannel extends Channel {
   }
 
   // copy to the group: investor message only (not the RM's), and never fail the main send
-  if (isAcc && recipient.role !== 'RM') {
+  if (
+  ['PAYMENT', 'RECEIPTREQ'].includes(type) &&
+  Number(isAcc) === 1 &&
+  recipient.role !== 'RM'
+) {
     try {
       await axios.post(
         `${baseUrl}/BT/api/whatsapp/send-text-to-group`,
-        { sessionId: this.config.groupSessionId || 'it', groupName: this.config.groupName || 'Demo Group', message: text },
+        { sessionId: this.config.groupSessionId || 'it', groupName: this.config.AccgroupName || 'Cbl Finance & IT', message: text },
         { timeout: timeoutMs }
       );
     } catch (err) {
