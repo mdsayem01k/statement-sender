@@ -8,7 +8,7 @@ const ctx = createContext();
 const registry = buildRegistry(ctx);
 const app = createApp(registry);
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log(`Modules: ${registry.all().map((m) => m.type).join(', ')}`);

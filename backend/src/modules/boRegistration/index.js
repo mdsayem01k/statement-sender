@@ -7,7 +7,18 @@ const BoApplicationService = require('./BoApplicationService');
 const BoStepSyncJob = require('./BoStepSyncJob');
 const files = require('./BoDocumentFiles');
 
-const toDate = (v) => (v ? new Date(v) : null);
+function toDate(value, name) {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(text)) {
+    throw new Error(`${name} must use YYYY-MM-DDTHH:mm:ss`);
+  }
+  const date = new Date(`${text}Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 19) !== text) {
+    throw new Error(`${name} is not a valid date/time`);
+  }
+  return date;
+}
 
 class BoRegistrationModule extends PdfDocumentModule {
   constructor(ctx) {
@@ -22,12 +33,18 @@ class BoRegistrationModule extends PdfDocumentModule {
     this.repository = new BoRegistrationRepository();
     this.application = new BoApplicationService({ repository: this.repository, files });
     this.cache = new PdfDiskCache(paths.BO_PDF_DIR);
+    const notifySince = toDate(process.env.BO_NOTIFY_SINCE, 'BO_NOTIFY_SINCE');
+    if (!notifySince) throw new Error('BO_NOTIFY_SINCE is required before enabling BO notifications');
+    const syncSince = toDate(process.env.BO_SYNC_SINCE, 'BO_SYNC_SINCE') || notifySince;
+    if (syncSince > notifySince) throw new Error('BO_SYNC_SINCE must not be later than BO_NOTIFY_SINCE');
+    const intervalMin = Number(process.env.BO_SYNC_INTERVAL_MIN || 1);
+    if (!Number.isFinite(intervalMin) || intervalMin <= 0) throw new Error('BO_SYNC_INTERVAL_MIN must be positive');
     this._job = new BoStepSyncJob({
       name: this.type, type: this.type, ctx, link: (c) => this.link(c),
       repository: new BoStepRepository(),
-      intervalMin: Number(process.env.BO_SYNC_INTERVAL_MIN || 1),
-      syncSince: toDate(process.env.BO_SYNC_SINCE),
-      notifySince: toDate(process.env.BO_NOTIFY_SINCE),
+      intervalMin,
+      syncSince,
+      notifySince,
     });
     this.getApplication = this.getApplication.bind(this);
   }

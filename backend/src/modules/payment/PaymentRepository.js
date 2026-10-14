@@ -32,6 +32,7 @@ class ChequeRepository extends ReceiptRepository {
 
   const { sql } = Db;
   const pool = await Db.pool(this.sourcePool);
+ 
 
   const result = await pool.request()
     .input('last', sql.Int, afterId)

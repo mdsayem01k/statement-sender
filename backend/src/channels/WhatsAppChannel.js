@@ -5,42 +5,30 @@ const { toIntl } = require('../utils/phone');
 class WhatsAppChannel extends Channel {
   constructor(config) {
     super('WHATSAPP');
-    this.config = config; // env.whatsapp
+    this.config = config;
   }
 
   accepts(recipient) {
     return !!toIntl(recipient.mobile);
   }
 
-  async send({ type, recipient, text, isAcc }) {
-  const { baseUrl, sessionId, timeoutMs } = this.config;
-  const response = await axios.post(
-    `${baseUrl}/BT/api/whatsapp/send-text`,
-    { sessionId, recipientJid: toIntl(recipient.mobile), message: text, investor: recipient.name },
-    { timeout: timeoutMs }
-  );
-  if (response.data?.success === false) {
-    throw new Error(String(response.data.error || 'WhatsApp send failed').split('\n')[0]);
-  }
-
-  // copy to the group: investor message only (not the RM's), and never fail the main send
-  if (
-  ['PAYMENT', 'RECEIPTREQ'].includes(type) &&
-  Number(isAcc) === 1 &&
-  recipient.role !== 'RM'
-) {
-    try {
-      await axios.post(
-        `${baseUrl}/BT/api/whatsapp/send-text-to-group`,
-        { sessionId: this.config.groupSessionId || 'it', groupName: this.config.AccgroupName || 'Cbl Finance & IT', message: text },
-        { timeout: timeoutMs }
-      );
-    } catch (err) {
-      console.error('[WHATSAPP] group send failed:', err.message);
+  async send({ recipient, text }) {
+    const { baseUrl, sessionId, timeoutMs } = this.config;
+    const response = await axios.post(
+      `${baseUrl}/BT/api/whatsapp/send-text`,
+      {
+        sessionId,
+        recipientJid: toIntl(recipient.mobile),
+        message: text,
+        investor: recipient.name
+      },
+      { timeout: timeoutMs }
+    );
+    if (response.data?.success === false) {
+      throw new Error(String(response.data.error || 'WhatsApp send failed').split('\n')[0]);
     }
+    return response.data;
   }
-  return response.data;
-}
 }
 
 module.exports = WhatsAppChannel;

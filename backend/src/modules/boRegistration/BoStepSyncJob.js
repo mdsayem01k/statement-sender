@@ -1,48 +1,74 @@
 const NotificationJob = require('../../core/NotificationJob');
 
-// BO database (step 9 reached) -> our database -> WhatsApp / SMS / email with the PDF link.
+function formatSubmissionTime(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) throw new Error('BO submission StepDate is missing or invalid');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hours = date.getUTCHours();
+  const minute = String(date.getUTCMinutes()).padStart(2, '0');
+  return `${day} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()} ||${hours % 12 || 12}:${minute}${hours >= 12 ? 'PM' : 'AM'}`;
+}
+
 class BoStepSyncJob extends NotificationJob {
   constructor({ syncSince = null, ...opts }) {
     super(opts);
-    this.syncSince = syncSince; // optional first-run cut-off so old history isn't copied
+    this.syncSince = syncSince || this.notifySince;
+    if (!this.syncSince) throw new Error('BO synchronization requires a starting date');
+    this.notifyRm = false;
+    this.notifyGroup = false;
   }
 
   async syncSource() {
     const repo = this.repository;
-    const since = (await repo.getLastStepDate()) || this.syncSince;
-
-    // 1) copy new step-9 registrations, each with a fresh url code
-    const rows = await repo.fetchStep9FromSource(since);
+    const rows = await repo.fetchStep9FromSource(this.syncSince);
+    const existing = await repo.getExistingMasterIds(rows.map(row => row.BORegistrationMasterID));
     let stored = 0;
+    let alreadySynced = 0;
+    let failed = 0;
     for (const row of rows) {
+      if (existing.has(row.BORegistrationMasterID)) { alreadySynced++; continue; }
       try {
-        await this.withNewCode(row.BORegistrationNo || row.BORegistrationMasterID, async (code) => {
-          stored += await repo.insertRow({ ...row, UrlCode: code });
+        const completed = await this.withNewCode(row.BORegistrationNo || row.BORegistrationMasterID, async code => {
+          const inserted = await repo.insertRow({ ...row, UrlCode: code });
+          stored += inserted;
+          if (!inserted) alreadySynced++;
         });
-      } catch (err) {
-        console.error(`[${this.name} SYNC] insert failed for`, row.BORegistrationMasterID, err.message);
+        if (!completed) failed++;
+      } catch (error) {
+        failed++;
+        console.error(`[${this.name} SYNC] insert failed for ${row.BORegistrationMasterID}:`, error.message);
       }
     }
-
-    // 2) a url code for any stored row that still has none (older rows)
     let codesAdded = 0;
-    for (const r of await repo.findWithoutUrlCode()) {
+    for (const row of await repo.findWithoutUrlCode()) {
       try {
-        if (await this.withNewCode(r.Id, (code) => repo.setUrlCode(r.Id, code))) codesAdded++;
-      } catch (err) {
-        console.error(`[${this.name} SYNC] url code failed for`, r.Id, err.message);
+        await this.withNewCode(row.Id, async code => {
+          if (await repo.setUrlCode(row.Id, code)) codesAdded++;
+        });
+      } catch (error) {
+        failed++;
+        console.error(`[${this.name} SYNC] URL code failed for ${row.Id}:`, error.message);
       }
     }
-    if (stored || codesAdded) console.log(`[${this.name} SYNC] fetched ${rows.length}, stored ${stored}, url codes added ${codesAdded}`);
-    return { fetched: rows.length, stored, codesAdded };
+    const summary = { fetched: rows.length, stored, alreadySynced, codesAdded, failed };
+    console.log(`[${this.name} SYNC]`, summary);
+    return summary;
   }
 
   buildRecipient(row) {
-    return { mobile: row.CellNo, email: row.Email, name: row.BORegistrationNo || '' };
+    return {
+      mobile: String(row.CellNo || '').split(',')[0].trim(),
+      email: String(row.Email || '').split(',')[0].trim(),
+      name: row.BORegistrationNo || ''
+    };
   }
 
   buildData(row) {
-    return { url: this.link(row.UrlCode) };
+    return {
+      url: this.link(row.UrlCode),
+      dateTime: formatSubmissionTime(row.StepDate)
+    };
   }
 
   buildMeta(row) {

@@ -22,6 +22,8 @@ class NotificationJob {
     this.batchSize = batchSize;
     this.maxRetry = maxRetry;         // after this many failed rounds a row is left alone
     this.emailEnabled = emailEnabled;
+    this.notifyGroup = false;
+    this.groupSince = null;
     this.notifyRm = true;            // a subclass turns it on (see ReceiptNotificationJob)
     this.running = false;
     this.timer = null;
@@ -52,10 +54,10 @@ class NotificationJob {
   async sendPending() {
     const rows = await this.repository.findUnsent({
       limit: this.batchSize, maxRetry: this.maxRetry, since: this.notifySince,
-      includeRm: this.notifyRm, emailEnabled: this.emailEnabled, deliveryModule: this.deliveryLedger.module,
+      includeRm: this.notifyRm, includeGroup: this.notifyGroup, groupSince: this.groupSince, emailEnabled: this.emailEnabled, deliveryModule: this.deliveryLedger.module,
     });
     const done = await this.repository.doneRecipients(rows.map((r) => r.Id), this.maxRetry); // extra recipients already finished
-    const stats = { whatsapp: 0, sms: 0, email: 0, failed: 0 };
+    const stats = { whatsapp: 0, whatsapp_group: 0, sms: 0, email: 0, failed: 0 };
 
     for (const row of rows) {
       for (const person of this.buildRecipients(row)) {
@@ -65,6 +67,8 @@ class NotificationJob {
             if (!row.IsSentSms && person.mobile) await this.deliver(row, 'MOBILE', person, stats);
             if (this.emailEnabled && !row.IsSentEmail && person.email) await this.deliver(row, 'EMAIL', person, stats);
           }
+        } else if (person.role === 'FINACC') {
+          if (!done.has(`${row.Id}:FINACC:GROUP`)) await this.deliver(row, 'GROUP', person, stats);
         } else {
           // anyone else (RM): one row per channel in NotificationRecipient
           if (person.mobile && !done.has(`${row.Id}:${person.role}:MOBILE`)) await this.deliver(row, 'MOBILE', person, stats);
@@ -72,7 +76,7 @@ class NotificationJob {
         }
       }
     }
-    if (rows.length) console.log(`[${this.name} NOTIFY] whatsapp ${stats.whatsapp}, sms ${stats.sms}, email ${stats.email}, failed ${stats.failed}`);
+    if (rows.length) console.log(`[${this.name} NOTIFY] whatsapp ${stats.whatsapp}, sms ${stats.sms}, email ${stats.email}, group ${stats.whatsapp_group}, failed ${stats.failed}, skipped ${stats.skipped || 0}`);
     return stats;
   }
 
@@ -110,6 +114,7 @@ class NotificationJob {
       delivered = await this.messageCenter.send(payload);
     } catch (error) {
       const definitelyRejected =
+        error.definitelyNotSent === true ||
         (error.statusCode === 400 && /^Invalid (mobile number|email address):/.test(error.message)) ||
         (this.type === 'TRADE_CONFIRMATION' && via === 'MOBILE' && error.errorType === 'SMS_DAILY_LIMIT');
       const state = definitelyRejected ? 'FAILED' : 'UNKNOWN';
@@ -151,7 +156,7 @@ class NotificationJob {
     if (!wanted) throw new HttpError(400, 'via must be mobile, email or all');
 
     const recipient = this.buildRecipient(row);
-    const stats = { whatsapp: 0, sms: 0, email: 0, failed: 0 };
+    const stats = { whatsapp: 0, whatsapp_group: 0, sms: 0, email: 0, failed: 0 };
     const results = [];
     for (const v of wanted) {
       const missing = v === 'MOBILE' ? !recipient.mobile : !recipient.email;

@@ -54,7 +54,7 @@ class BoRegistrationRepository {
   async findMasterIdByUrlCode(urlcode) {
     const pool = await Db.pool('poolPromise');
     const r = await pool.request().input('urlcode', Db.sql.VarChar(100), urlcode)
-      .query('SELECT BORegistrationMasterID AS id FROM BoStepNotification WHERE UrlCode = @urlcode');
+      .query('SELECT BORegistrationMasterID AS id FROM dbo.BoStepNotification WHERE UrlCode = @urlcode');
     return r.recordset[0]?.id ?? null;
   }
 

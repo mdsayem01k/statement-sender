@@ -7,7 +7,7 @@ class BoStepRepository extends NotificationRepository {
     super({
       table: 'dbo.BoStepNotification',
       pk: 'BORegistrationMasterID',
-      select: 'n.BORegistrationNo',
+      select: 'n.BORegistrationNo, n.StepDate',
       sinceColumn: 'n.StepDate',
     });
   }
@@ -55,11 +55,26 @@ ORDER BY MAX(l.LastUpdateDate)`);
     return r.recordset[0].d || null;
   }
 
-  // 1 if inserted, 0 if it already existed
+  async getExistingMasterIds(ids) {
+    const found = new Set();
+    if (!ids.length) return found;
+    const pool = await this.pool();
+    for (let i = 0; i < ids.length; i += 500) {
+      const request = pool.request();
+      const names = ids.slice(i, i + 500).map((id, index) => {
+        request.input(`id${index}`, Db.sql.Int, id);
+        return `@id${index}`;
+      });
+      const result = await request.query(`SELECT BORegistrationMasterID FROM ${this.table} WHERE BORegistrationMasterID IN (${names.join(',')})`);
+      for (const row of result.recordset) found.add(row.BORegistrationMasterID);
+    }
+    return found;
+  }
+
   async insertRow(row) {
     const { sql } = Db;
-    const p = await this.pool();
-    const res = await p.request()
+    const pool = await this.pool();
+    const result = await pool.request()
       .input('id', sql.Int, row.BORegistrationMasterID)
       .input('no', sql.NVarChar(100), row.BORegistrationNo)
       .input('cell', sql.NVarChar(30), row.CellNo)
@@ -67,11 +82,45 @@ ORDER BY MAX(l.LastUpdateDate)`);
       .input('urlCode', sql.NVarChar(64), row.UrlCode)
       .input('stepDate', sql.DateTime, row.StepDate)
       .query(`
-IF NOT EXISTS (SELECT 1 FROM ${this.table} WHERE BORegistrationMasterID = @id)
-  INSERT INTO ${this.table}
-    (BORegistrationMasterID, BORegistrationNo, CellNo, Email, UrlCode, StepDate, IsSentSms, IsSentEmail, InsertDate)
-  VALUES (@id, @no, @cell, @email, @urlCode, @stepDate, 0, 0, GETDATE())`);
-    return res.rowsAffected[0] || 0;
+        SET NOCOUNT ON;
+        SET XACT_ABORT ON;
+        BEGIN TRY
+          BEGIN TRANSACTION;
+          DECLARE @resource NVARCHAR(255) = CONCAT('BO_STEP_SYNC:', @id);
+          DECLARE @lockResult INT, @inserted INT = 0;
+          EXEC @lockResult = sys.sp_getapplock
+            @Resource = @resource, @LockMode = 'Exclusive',
+            @LockOwner = 'Transaction', @LockTimeout = 10000;
+          IF @lockResult < 0 THROW 50005, 'Unable to acquire BO sync lock.', 1;
+          IF NOT EXISTS (SELECT 1 FROM ${this.table} WHERE BORegistrationMasterID = @id)
+          BEGIN
+            INSERT INTO ${this.table}
+              (BORegistrationMasterID, BORegistrationNo, CellNo, Email, UrlCode, StepDate, IsSentSms, IsSentEmail, InsertDate)
+            VALUES (@id, @no, @cell, @email, @urlCode, @stepDate, 0, 0, GETDATE());
+            SET @inserted = 1;
+          END;
+          COMMIT TRANSACTION;
+          SELECT @inserted AS inserted;
+        END TRY
+        BEGIN CATCH
+          IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+          THROW;
+        END CATCH;
+      `);
+    return result.recordset?.[0]?.inserted || 0;
+  }
+
+  async setUrlCode(id, urlCode) {
+    const pool = await this.pool();
+    const result = await pool.request()
+      .input('id', Db.sql.Int, id)
+      .input('urlCode', Db.sql.NVarChar(64), urlCode)
+      .query(`
+        UPDATE ${this.table} SET UrlCode = @urlCode, UpdatedAt = GETDATE()
+        WHERE BORegistrationMasterID = @id AND UrlCode IS NULL;
+        SELECT @@ROWCOUNT AS changed;
+      `);
+    return result.recordset?.[0]?.changed === 1;
   }
 }
 

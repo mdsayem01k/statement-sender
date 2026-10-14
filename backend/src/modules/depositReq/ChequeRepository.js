@@ -25,7 +25,7 @@ SELECT d.RecordID AS ChequeID,                -- <-- replace RecordID with the r
        d.ReceiveDate, d.Amount,
        'BO PORTAL' AS Descriptions,
        NULL AS ReferenceNumber,
-       d.ReceiveDate AS SourceInTimestamp
+       d.InTimeStamp AS SourceInTimestamp
 FROM dbo.Payments_tblDepositRequisition d
 WHERE d.RecordID > @last                      -- <-- same id column
 ORDER BY d.RecordID`);

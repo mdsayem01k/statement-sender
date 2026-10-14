@@ -10,7 +10,7 @@ class ReceiptRepository extends NotificationRepository {
     super({
       table: notificationTable,
       pk: 'NotificationID',
-      select: `n.${idColumn} AS SourceId, s.InvestorCode, s.Amount, s.Descriptions, s.ReceiveDate, s.Trader, s.RmMobile, s.RmEmail`,
+      select: `n.${idColumn} AS SourceId, s.InvestorCode, s.Amount, s.Descriptions, s.ReceiveDate, n.InsertDate AS NotificationInsertDate, s.Trader, s.RmMobile, s.RmEmail`,
       join: `JOIN ${syncTable} s ON s.${idColumn} = n.${idColumn}`,
       sinceColumn: 's.ReceiveDate',
       searchColumns: ['s.InvestorCode', 's.Descriptions', 's.ReferenceNumber'],
@@ -68,13 +68,25 @@ CREATE TABLE ${n} (
   }
 
   // RM still has a channel to receive: has a number / address and no finished NotificationRecipient row
-  extraPendingSql({ emailEnabled = true, deliveryModule = null } = {}) {
-    const open = (ch) => `NOT EXISTS (SELECT 1 FROM dbo.NotificationRecipient r
-      WHERE r.Module = @module AND r.NotificationID = n.${this.pk} AND r.Role = 'RM' AND r.Channel = '${ch}'
+  extraPendingSql({ emailEnabled = true, deliveryModule = null, includeRm = true, includeGroup = false } = {}) {
+    const open = (role, via) => `NOT EXISTS (
+      SELECT 1 FROM dbo.NotificationRecipient r
+      WHERE r.Module = @module AND r.NotificationID = n.${this.pk}
+        AND r.Role = '${role}' AND r.Channel = '${via}'
         AND (r.IsSent = 1 OR r.RetryCount >= @maxRetry))
-      ${deliveryModule ? `AND NOT EXISTS (SELECT 1 FROM dbo.NotificationDelivery d WHERE d.Module = @deliveryModule AND d.NotificationID = CONVERT(NVARCHAR(100), n.${this.pk}) AND d.RecipientRole = 'RM' AND d.Via = '${ch}' AND d.State IN ('IN_FLIGHT', 'UNKNOWN', 'SENT'))` : ''}`;
-    const parts = [`(ISNULL(s.RmMobile, '') <> '' AND ${open('MOBILE')})`];
-    if (emailEnabled) parts.push(`(ISNULL(s.RmEmail, '') <> '' AND ${open('EMAIL')})`);
+      ${deliveryModule ? `AND NOT EXISTS (
+        SELECT 1 FROM dbo.NotificationDelivery d
+        WHERE d.Module = @deliveryModule AND d.NotificationID = CONVERT(NVARCHAR(100), n.${this.pk})
+          AND d.RecipientRole = '${role}' AND d.Via = '${via}'
+          AND d.State IN ('IN_FLIGHT', 'UNKNOWN', 'SENT'))` : ''}`;
+    const parts = [];
+    if (includeRm) {
+      parts.push(`(ISNULL(s.RmMobile, '') <> '' AND ${open('RM', 'MOBILE')})`);
+      if (emailEnabled) parts.push(`(ISNULL(s.RmEmail, '') <> '' AND ${open('RM', 'EMAIL')})`);
+    }
+    if (includeGroup) {
+      parts.push(`(@groupSince IS NOT NULL AND n.InsertDate >= @groupSince AND ${open('FINACC', 'GROUP')})`);
+    }
     return parts.join(' OR ');
   }
 

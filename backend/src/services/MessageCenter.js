@@ -34,8 +34,8 @@ class MessageCenter {
     }
 
     const source =
-      part === 'text'
-        ? template.text
+      part === 'text' || part === 'textRM'
+        ? template[part]
         : template.email?.[part];
 
     if (source == null) {
@@ -123,10 +123,13 @@ class MessageCenter {
         to.email = this.testEmail;
       }
 
+      const internalRecipient = via !== 'EMAIL' && ['RM', 'FINACC'].includes(to.role);
+      const textPart = internalRecipient && this.templates[type]?.textRM != null ? 'textRM' : 'text';
+
       const payload = {
         type,
         recipient: to,
-        text: this.render(type, data, 'text'),
+        text: this.render(type, data, textPart),
         isAcc
       };
 
@@ -213,6 +216,7 @@ class MessageCenter {
       failure.statusCode = lastErr?.statusCode || 500;
       failure.errorType = lastErr?.errorType;
       failure.retryable = lastErr?.retryable;
+      failure.definitelyNotSent = usable.length === 1 && lastErr?.definitelyNotSent === true;
       failure.fallbackErrors = errors;
 
       throw failure;

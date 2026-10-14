@@ -5,6 +5,7 @@ const AuditService = require('../services/AuditService');
 const MessageCenter = require('../services/MessageCenter');
 const WhatsAppChannel = require('../channels/WhatsAppChannel');
 const SmsChannel = require('../channels/SmsChannel');
+const WhatsAppGroupChannel = require('../channels/WhatsAppGroupChannel');
 const EmailChannel = require('../channels/EmailChannel');
 
 function createContext() {
@@ -23,6 +24,7 @@ function createContext() {
         { channel: new SmsChannel(env.sms), attempts: env.notify.smsMaxAttempts },
       ],
       EMAIL: [{ channel: new EmailChannel(env.mail), attempts: 1 }],
+      GROUP: [{ channel: new WhatsAppGroupChannel(env.whatsapp), attempts: 1 }],
     },
   });
 
