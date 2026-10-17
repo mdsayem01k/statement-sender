@@ -10,15 +10,20 @@ const DepositReqModule=require('../modules/depositReq')
 const DepositModule = require('../modules/deposit');
 const BoRegistrationModule = require('../modules/boRegistration');
 const PaymentModule = require('../modules/payment');   // example: same receipt, other table
+const CityAgentModule = require('../modules/cityAgent');
 
 function buildRegistry(ctx) {
-  return new ModuleRegistry()
+  const registry = new ModuleRegistry()
     // .register(new TradeConfirmationModule(ctx))
     // .register(new PortfolioModule(ctx))
     // .register(new DepositReqModule(ctx))
     // .register(new DepositModule(ctx))
-    .register(new BoRegistrationModule(ctx));
-    // .register(new PaymentModule(ctx));                  // <- uncomment to switch Payment on
+    // .register(new BoRegistrationModule(ctx))
+    // .register(new PaymentModule(ctx));
+  if (String(process.env.CITYAGENT_ENABLED || '').toLowerCase() === 'true') {
+    registry.register(new CityAgentModule(ctx));
+  }
+  return registry;
 }
 
 module.exports = buildRegistry;

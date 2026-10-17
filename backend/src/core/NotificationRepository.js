@@ -67,7 +67,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_${this.bare}_UrlCode' 
   // rows that still need something sent:
   //   the investor: WhatsApp/SMS (IsSentSms = 0) or email (IsSentEmail = 0), while RetryCount < maxRetry
   //   or an extra recipient (includeRm): see extraPendingSql(), with its own retry count
-  async findUnsent({ limit, maxRetry, since, includeRm = false, includeGroup = false, groupSince = null, emailEnabled = true, deliveryModule = null }) {
+  async findUnsent({ limit, maxRetry, since, includeRm = false, includeGroup = false, groupSince = null, emailEnabled = true, rmEmailEnabled = false, deliveryModule = null }) {
     const { sql } = Db;
     const p = await this.pool();
     const available = (role, via) => deliveryModule
@@ -76,7 +76,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UQ_${this.bare}_UrlCode' 
     const investor = `n.RetryCount < @maxRetry AND (
         (n.IsSentSms = 0 AND ISNULL(n.CellNo, '') <> '' ${available('INVESTOR', 'MOBILE')})
         ${emailEnabled ? `OR (n.IsSentEmail = 0 AND ISNULL(n.Email, '') <> '' ${available('INVESTOR', 'EMAIL')})` : ''})`;
-    const extra = includeRm || includeGroup ? this.extraPendingSql({ emailEnabled, deliveryModule, includeRm, includeGroup }) : '';
+    const extra = includeRm || includeGroup ? this.extraPendingSql({ emailEnabled, rmEmailEnabled, deliveryModule, includeRm, includeGroup }) : '';
     const r = await p.request()
       .input('limit', sql.Int, limit)
       .input('maxRetry', sql.Int, maxRetry)

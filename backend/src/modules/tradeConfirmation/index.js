@@ -1,6 +1,7 @@
 const FolderPdfModule = require('../folderPdf/FolderPdfModule');
 const PdfLocator = require('../folderPdf/PdfLocator');
 const paths = require('../../config/paths');
+const TradeBatchService = require('./batch/TradeBatchService');
 
 // Trade confirmation = a FolderPdfModule with these folder settings. Nothing else.
 class TradeConfirmationModule extends FolderPdfModule {
@@ -25,6 +26,11 @@ class TradeConfirmationModule extends FolderPdfModule {
           process.env.TRADE_PDF_FOLDER_TEMPLATE || 'trade-({date})'
       }),
     });
+    this.sendBatches = new TradeBatchService(this);
+  }
+
+  routes() {
+    return [...super.routes(), ...this.sendBatches.routes()];
   }
 }
 

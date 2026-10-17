@@ -1,3 +1,4 @@
+const NotificationPipeline = require('./NotificationPipeline');
 const wrap = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
 // Knows every module. server.js asks it to mount routes and start jobs.
@@ -29,22 +30,33 @@ class ModuleRegistry {
     }
     // ops endpoints for every module that has a job (replaces the commented bo-step-sync routes)
     router.get('/jobs/status', (req, res) => {
-      res.json({ success: true, jobs: this.all().filter((m) => m.job).map((m) => m.job.status()) });
+      res.json({ success: true, pipeline: this.pipeline?.status() || null, jobs: this.all().filter((m) => m.job).map((m) => m.job.status()) });
     });
+    router.post('/jobs/pipeline/run', wrap(async (req, res) => {
+      res.json({ success: true, ...(await this.getPipeline().run()) });
+    }));
     router.post('/jobs/:type/run', wrap(async (req, res) => {
       const m = this.get(String(req.params.type).toUpperCase());
       if (!m?.job) return res.status(404).json({ success: false, message: 'No job for this module' });
-      res.json({ success: true, ...(await m.job.run()) });
+      res.json({ success: true, ...(await this.getPipeline().run()) });
     }));
   }
 
-  async startJobs() {
-    for (const m of this.all()) {
-      if (m.job) await m.job.start().catch((e) => console.error(`[${m.type} JOB] start failed:`, e.message));
+  getPipeline() {
+    if (!this.pipeline) {
+      const types = ['RECEIPTREQ', 'PAYMENT', 'BO_REGISTRATION','CITYAGENT'];
+      this.pipeline = new NotificationPipeline(types.map(type => this.get(type)?.job).filter(Boolean));
     }
+    return this.pipeline;
   }
 
-  stopJobs() { this.all().forEach((m) => m.job?.stop()); }
+  startJobs() { return this.getPipeline().start(); }
+
+  async stopJobs() {
+    this.all().forEach(module => module.job?.stop());
+    await this.pipeline?.stop();
+  }
+
 }
 
 module.exports = ModuleRegistry;

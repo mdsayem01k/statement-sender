@@ -22,6 +22,7 @@ class NotificationJob {
     this.batchSize = batchSize;
     this.maxRetry = maxRetry;         // after this many failed rounds a row is left alone
     this.emailEnabled = emailEnabled;
+    this.rmEmailEnabled = false;
     this.notifyGroup = false;
     this.groupSince = null;
     this.notifyRm = true;            // a subclass turns it on (see ReceiptNotificationJob)
@@ -54,7 +55,7 @@ class NotificationJob {
   async sendPending() {
     const rows = await this.repository.findUnsent({
       limit: this.batchSize, maxRetry: this.maxRetry, since: this.notifySince,
-      includeRm: this.notifyRm, includeGroup: this.notifyGroup, groupSince: this.groupSince, emailEnabled: this.emailEnabled, deliveryModule: this.deliveryLedger.module,
+      includeRm: this.notifyRm, includeGroup: this.notifyGroup, groupSince: this.groupSince, emailEnabled: this.emailEnabled, rmEmailEnabled: this.rmEmailEnabled, deliveryModule: this.deliveryLedger.module,
     });
     const done = await this.repository.doneRecipients(rows.map((r) => r.Id), this.maxRetry); // extra recipients already finished
     const stats = { whatsapp: 0, whatsapp_group: 0, sms: 0, email: 0, failed: 0 };
@@ -72,7 +73,7 @@ class NotificationJob {
         } else {
           // anyone else (RM): one row per channel in NotificationRecipient
           if (person.mobile && !done.has(`${row.Id}:${person.role}:MOBILE`)) await this.deliver(row, 'MOBILE', person, stats);
-          if (this.emailEnabled && person.email && !done.has(`${row.Id}:${person.role}:EMAIL`)) await this.deliver(row, 'EMAIL', person, stats);
+          if (this.rmEmailEnabled && person.email && !done.has(`${row.Id}:${person.role}:EMAIL`)) await this.deliver(row, 'EMAIL', person, stats);
         }
       }
     }
@@ -185,9 +186,6 @@ class NotificationJob {
 
   async start() {
     await this.repository.ensureTables();
-    this.run();                                              // once now
-    this.timer = setInterval(() => this.run(), this.intervalMs); // then on the interval
-    this.timer.unref?.();
   }
 
   stop() { clearInterval(this.timer); }

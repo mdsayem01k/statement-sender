@@ -42,5 +42,12 @@
       "subject": "BO Registration Submitted - City Brokerage Limited",
       "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>Your BO registration was submitted successfully.</p><p>View your application: <a href=\"{{url}}\">{{url}}</a></p>"
     }
+  },
+  "CITYAGENT": {
+    "text": "A CityAgent BO account has been opened. Investor: {{investorCode}}, BO: {{boNumber}}, Agent: {{agentName}}.\n{{dateTime}}",
+    "email": {
+      "subject": "CityAgent BO Account Opened - {{investorCode}}",
+      "html": "<p>A CityAgent BO account has been opened.</p><p>Investor: {{investorCode}}<br>BO: {{boNumber}}<br>Agent: {{agentName}}<br>Date: {{dateTime}}</p>"
+    }
   }
 }

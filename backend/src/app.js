@@ -6,6 +6,7 @@ const { sendHtmlError } = require('./utils/htmlError');
 function createApp(registry) {
   const app = express();
   app.use(cors());
+  app.use('/api/report/send-batches', express.json({ limit: '2mb' }));
   app.use(express.json());
 
   const router = express.Router();

@@ -68,7 +68,7 @@ CREATE TABLE ${n} (
   }
 
   // RM still has a channel to receive: has a number / address and no finished NotificationRecipient row
-  extraPendingSql({ emailEnabled = true, deliveryModule = null, includeRm = true, includeGroup = false } = {}) {
+  extraPendingSql({ emailEnabled = true, rmEmailEnabled = false, deliveryModule = null, includeRm = true, includeGroup = false } = {}) {
     const open = (role, via) => `NOT EXISTS (
       SELECT 1 FROM dbo.NotificationRecipient r
       WHERE r.Module = @module AND r.NotificationID = n.${this.pk}
@@ -82,7 +82,7 @@ CREATE TABLE ${n} (
     const parts = [];
     if (includeRm) {
       parts.push(`(ISNULL(s.RmMobile, '') <> '' AND ${open('RM', 'MOBILE')})`);
-      if (emailEnabled) parts.push(`(ISNULL(s.RmEmail, '') <> '' AND ${open('RM', 'EMAIL')})`);
+      if (rmEmailEnabled) parts.push(`(ISNULL(s.RmEmail, '') <> '' AND ${open('RM', 'EMAIL')})`);
     }
     if (includeGroup) {
       parts.push(`(@groupSince IS NOT NULL AND n.InsertDate >= @groupSince AND ${open('FINACC', 'GROUP')})`);
