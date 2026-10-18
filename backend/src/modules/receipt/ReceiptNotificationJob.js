@@ -70,13 +70,61 @@ class ReceiptNotificationJob extends NotificationJob {
   }
 
  buildData(row) {
-  return {
+  const data = {
     amount: Number(row.Amount || 0).toFixed(2),
     url: this.link(row.UrlCode),
     Investor: row.InvestorCode || '',
-    isAcc: Number(row.IsAcc) === 1,
+    isAcc: Number(row.IsAcc) === 1
   };
+
+  if (['PAYMENT', 'RECEIPTREQ'].includes(this.type)) {
+    let value = row.SourceInTimestamp;
+
+    if (typeof value === 'string') {
+      value = value.trim();
+
+      const sqlDatePattern =
+        /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
+
+      if (sqlDatePattern.test(value)) {
+        value = value.replace(' ', 'T') + 'Z';
+      }
+    }
+
+    const date = value ? new Date(value) : null;
+
+    if (!date || Number.isNaN(date.getTime())) {
+      throw new Error(
+        `${this.type}: SourceInTimestamp is missing or invalid`
+      );
+    }
+
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr',
+      'May', 'Jun', 'Jul', 'Aug',
+      'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+
+    const day = String(
+      date.getUTCDate()
+    ).padStart(2, '0');
+
+    const hour = date.getUTCHours();
+
+    const minute = String(
+      date.getUTCMinutes()
+    ).padStart(2, '0');
+
+    const period = hour >= 12 ? 'PM' : 'AM';
+
+    data.dateTime =
+      `${day} ${months[date.getUTCMonth()]} ` +
+      `${date.getUTCFullYear()} ||` +
+      `${hour % 12 || 12}:${minute}${period}`;
   }
+
+  return data;
+}
   buildMeta(row) {
     return { encryptoCode: row.UrlCode, resolvedCode: row.InvestorCode };
   }

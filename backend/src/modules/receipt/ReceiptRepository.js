@@ -10,8 +10,19 @@ class ReceiptRepository extends NotificationRepository {
     super({
       table: notificationTable,
       pk: 'NotificationID',
-      select: `n.${idColumn} AS SourceId, s.InvestorCode, s.Amount, s.Descriptions, s.ReceiveDate, n.InsertDate AS NotificationInsertDate, s.Trader, s.RmMobile, s.RmEmail`,
-      join: `JOIN ${syncTable} s ON s.${idColumn} = n.${idColumn}`,
+     select: `
+  n.${idColumn} AS SourceId,
+  s.InvestorCode,
+  s.Amount,
+  s.Descriptions,
+  s.ReceiveDate,
+  s.SourceInTimestamp,
+  n.InsertDate AS NotificationInsertDate,
+  s.Trader,
+  s.RmMobile,
+  s.RmEmail
+`,
+join: `JOIN ${syncTable} s ON s.${idColumn} = n.${idColumn}`,
       sinceColumn: 's.ReceiveDate',
       searchColumns: ['s.InvestorCode', 's.Descriptions', 's.ReferenceNumber'],
     });
