@@ -4,7 +4,7 @@ const DOCUMENT_STATUSES = new Set([
 ]);
 const MODULES = [
   'TRADE_CONFIRMATION', 'PORTFOLIO', 'RECEIPTREQ',
-  'RECEIPT', 'PAYMENT', 'BO_REGISTRATION', 'CITYAGENT'
+  'RECEIPTVA', 'RECEIPT', 'PAYMENT', 'BO_REGISTRATION', 'CITYAGENT'
 ];
 const EVENT_TYPES = ['all', 'document', 'proxy', 'notification', 'other'];
 function normalizeIp(value) {

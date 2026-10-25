@@ -1,23 +1,42 @@
 const ReceiptModule = require('../receipt/ReceiptModule');
 const ChequeRepository = require('./ChequeRepository');
-const { flag } = require('../../utils/flag');
+const DeliveryLedger = require('../../services/DeliveryLedger');
+const DepositVANotificationJob = require('./DepositVANotificationJob');
+const DepositVAMessageCenter = require('./DepositVAMessageCenter');
+const { config } = require('./config');
 
 class DepositVAModule extends ReceiptModule {
   constructor(ctx) {
+    const settings = config();
+
+    const messageCenter = new DepositVAMessageCenter(
+      ctx.messageCenter,
+      settings
+    );
+
     super({
-      ctx,
-      type: 'RECEIPT',                                       // message template key (same as before)
-      label: 'Deposit Receipt',
-      linkTemplate: '/api/report/receipt/id={code}',         // same link as before
-      pdfRoutes: ['/report/receipt/:param', '/report/receipt'],
-      auditPrefix: 'RECEIPT_',
-      repository: new ChequeRepository(),
-      tranType: 'CHEQUE PAYMENT',
-      job: {
-        notifyRm: flag(process.env.RM_NOTIFY_DEPOSIT),   // also send to the investor's RM
-        intervalMin: Number(process.env.SYNC_INTERVAL_MIN || 1),
-        notifySince: process.env.NOTIFY_SINCE ? new Date(process.env.NOTIFY_SINCE) : null,
+      ctx: {
+        ...ctx,
+        messageCenter
       },
+      type: 'RECEIPTVA',
+      label: 'Deposit VA',
+      linkTemplate: '/api/report/receipt/id={code}',
+      pdfRoutes: [
+        '/report/receipt/:param',
+        '/report/receipt'
+      ],
+      auditPrefix: 'RECEIPTVA_',
+      repository: new ChequeRepository(settings),
+      tranType: 'VA DEPOSIT',
+      jobClass: DepositVANotificationJob,
+      job: {
+        settings,
+        deliveryLedger: new DeliveryLedger({
+          poolName: 'poolPromise',
+          module: 'RECEIPT:dbo.ChequeNotification'
+        })
+      }
     });
   }
 }

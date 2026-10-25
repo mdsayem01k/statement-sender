@@ -49,5 +49,13 @@
       "subject": "CityAgent BO Account Opened - {{investorCode}}",
       "html": "<p>A CityAgent BO account has been opened.</p><p>Investor: {{investorCode}}<br>BO: {{boNumber}}<br>Agent: {{agentName}}<br>Date: {{dateTime}}</p>"
     }
+  },
+  "RECEIPTVA": {
+  "text": "Thank you for choosing City Brokerage Ltd. We have received your deposit of {{amount}} BDT. Receipt: {{url}}",
+  "textRM": "A VA deposit of BDT {{amount}} for Investor {{Investor}} has been received.\n{{dateTime}}\nReceipt: {{url}}",
+  "email": {
+    "subject": "Deposit Receipt - City Brokerage Limited",
+    "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>We received your deposit of <strong>{{amount}} BDT</strong>.</p><p>Receipt: <a href=\"{{url}}\">{{url}}</a></p>"
   }
+}
 }
