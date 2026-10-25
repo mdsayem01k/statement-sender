@@ -2,7 +2,7 @@ const ReceiptModule = require('../receipt/ReceiptModule');
 const ChequeRepository = require('./ChequeRepository');
 const { flag } = require('../../utils/flag');
 
-class DepositModule extends ReceiptModule {
+class DepositVAModule extends ReceiptModule {
   constructor(ctx) {
     super({
       ctx,
@@ -22,4 +22,4 @@ class DepositModule extends ReceiptModule {
   }
 }
 
-module.exports = DepositModule;
+module.exports = DepositVAModule;
