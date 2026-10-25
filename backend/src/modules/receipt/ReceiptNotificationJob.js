@@ -43,9 +43,13 @@ class ReceiptNotificationJob extends NotificationJob {
     return { fetched: rows.length, stored, created };
   }
 
-  buildRecipient(row) {
-    return { mobile: row.CellNo, email: row.Email, name: parseDescription(row.Descriptions).name };
-  }
+ buildRecipient(row) {
+  return {
+    mobile: String(row.CellNo || '').split(',')[0].trim(),
+    email: String(row.Email || '').split(',')[0].trim(),
+    name: parseDescription(row.Descriptions).name
+  };
+}
 
   // investor first, then the RM when that RM has a number / address different from the investor's
   buildRecipients(row) {
