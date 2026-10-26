@@ -210,7 +210,7 @@ class DepositReqNotificationJob extends ReceiptNotificationJob {
       }
     }
 
-    console.log('[RECEIPTREQ NOTIFY]', stats);
+    console.log(`[${this.name} NOTIFY]`, stats);
 
     return stats;
   }

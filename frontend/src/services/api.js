@@ -80,6 +80,7 @@ export function moduleType(status = '') {
     'TRADE_CONFIRMATION',
     'BO_REGISTRATION',
     'PORTFOLIO',
+    'DEPOSIT_APPROVE',
     'PAYMENT'
   ]) {
     if (status.startsWith(`${type}_`)) {

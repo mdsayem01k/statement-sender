@@ -24,7 +24,7 @@ class DepositReqGroupChannel extends Channel {
   }
 
   async send({ type, recipient, text }) {
-    if (type !== 'RECEIPTREQ' || !this.accepts(recipient)) {
+    if (type !== (this.settings.messageType || 'RECEIPTREQ') || !this.accepts(recipient)) {
       const error = new Error(
         'Unsupported Deposit Requisition group recipient'
       );

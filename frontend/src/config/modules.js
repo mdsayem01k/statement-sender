@@ -33,6 +33,11 @@ export const modules = [
     slug: 'deposit-requisition'
   },
   {
+    type: 'DEPOSIT_APPROVE',
+    name: 'Deposit Approval',
+    slug: 'deposit-approval'
+  },
+  {
     type: 'PAYMENT',
     name: 'Payment',
     slug: 'payment'

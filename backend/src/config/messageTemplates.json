@@ -57,5 +57,13 @@
     "subject": "Deposit Receipt - City Brokerage Limited",
     "html": "<p>Thank you for choosing City Brokerage Ltd.</p><p>We received your deposit of <strong>{{amount}} BDT</strong>.</p><p>Receipt: <a href=\"{{url}}\">{{url}}</a></p>"
   }
-}
+},
+  "DEPOSIT_APPROVE": {
+    "text": "Thank you for choosing City Brokerage Ltd. Your deposit of BDT {{amount}} for Investor {{Investor}} has been approved.\nPayment date: {{paymentDate}}\n{{paymentMode}}",
+    "textRM": "A deposit of BDT {{amount}} for Investor {{Investor}} has been approved.\nPayment date: {{paymentDate}}\n{{paymentMode}}",
+    "email": {
+      "subject": "Deposit Approved - City Brokerage Limited",
+      "html": "<p>Your deposit of <strong>BDT {{amount}}</strong> for Investor <strong>{{Investor}}</strong> has been approved.</p><p>Payment date: {{paymentDate}}</p><p>{{paymentMode}}</p>"
+    }
+  }
 }
