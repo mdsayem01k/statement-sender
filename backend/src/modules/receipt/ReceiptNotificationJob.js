@@ -6,9 +6,9 @@ const last10 = (v) => String(v || '').replace(/\D/g, '').slice(-10);   // 880171
 // sync from the source table -> create notification rows with url codes -> send (core/NotificationJob does the sending)
 class ReceiptNotificationJob extends NotificationJob {
   // notifyRm: also send the same message to the investor's RM (RmMobile / RmEmail copied at sync time)
-  constructor({ notifyRm = false, ...opts }) {
+  constructor({ notifyRm = false, independentGroups = false, ...opts }) {
     super(opts);
-    this.notifyGroup = ['PAYMENT', 'RECEIPTREQ'].includes(this.type);
+    this.notifyGroup = !independentGroups && ['PAYMENT', 'RECEIPTREQ'].includes(this.type);
     this.notifyRm = this.notifyGroup || notifyRm;
     if (this.notifyGroup) {
       const since = String(process.env.FINACC_GROUP_NOTIFY_SINCE || '').trim();

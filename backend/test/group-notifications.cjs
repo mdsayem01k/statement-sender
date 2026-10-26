@@ -41,7 +41,7 @@ function fixture({ smsFails = false, groupFails = false, alreadySent = false, in
   };
   const Base = load('backend/src/core/NotificationJob.js', { '../services/DeliveryLedger': class {} });
   const Receipt = load('backend/src/modules/receipt/ReceiptNotificationJob.js', { '../../core/NotificationJob': Base });
-  const row = { Id: 1, InvestorCode: '0015', CellNo: '01700000000', RmMobile: '01800000000', Email: null, RmEmail: null, Amount: 100, UrlCode: 'abcdef123', NotificationInsertDate: new Date(inserted), IsSentSms: alreadySent, IsSentEmail: true, RetryCount: 0 };
+  const row = { Id: 1, InvestorCode: '0015', CellNo: '01700000000', RmMobile: '01800000000', Email: null, RmEmail: null, Amount: 100, UrlCode: 'abcdef123', SourceInTimestamp: new Date(inserted), NotificationInsertDate: new Date(inserted), IsSentSms: alreadySent, IsSentEmail: true, RetryCount: 0 };
   const repository = { table: 'dbo.WithdrawalRequestNotification', findUnsent: async () => [row], doneRecipients: async () => new Set(), markSent: async (...v) => flags.push(['investor', ...v]), markRecipientSent: async (...v) => flags.push(['extra', ...v]), markFailed: async () => {}, markRecipientFailed: async () => {} };
   const job = new Receipt({ type: 'PAYMENT', name: 'PAYMENT', repository, deliveryLedger: ledger, ctx: { env: { notify: { emailEnabled: false } }, messageCenter: center }, link: c => c, notifyRm: false });
   return { job, row, calls, states, flags, audits };

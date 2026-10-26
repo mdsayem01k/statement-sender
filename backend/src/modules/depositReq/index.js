@@ -1,24 +1,31 @@
 const ReceiptModule = require('../receipt/ReceiptModule');
 const ChequeRepository = require('./ChequeRepository');
-const { flag } = require('../../utils/flag');
+const DeliveryLedger = require('../../services/DeliveryLedger');
+const DepositReqNotificationJob = require('./DepositReqNotificationJob');
+const DepositReqMessageCenter = require('./DepositReqMessageCenter');
+const { config } = require('./config');
 
-class DepositModule extends ReceiptModule {
+class DepositReqModule extends ReceiptModule {
   constructor(ctx) {
+    const settings = config();
+    const messageCenter = new DepositReqMessageCenter(ctx.messageCenter, settings);
     super({
-      ctx,
-      type: 'RECEIPTREQ',                                       // message template key (same as before)
-      label: 'Deposit Receipt',
-      linkTemplate: '/api/report/receipt_req/id={code}',         // same link as before
-      
-      auditPrefix: 'RECEIPT_',
-      repository: new ChequeRepository(),
+      ctx: { ...ctx, messageCenter },
+      type: 'RECEIPTREQ',
+      label: 'Deposit Requisition',
+      linkTemplate: '/api/report/receipt_req/id={code}',
+      auditPrefix: 'RECEIPTREQ_',
+      repository: new ChequeRepository(settings),
+      jobClass: DepositReqNotificationJob,
       job: {
-        notifyRm: flag(process.env.RM_NOTIFY_DEPOSIT),   // also send to the investor's RM
-        intervalMin: Number(process.env.SYNC_INTERVAL_MIN || 1),
-        notifySince: process.env.NOTIFY_SINCE ? new Date(process.env.NOTIFY_SINCE) : null,
-      },
+        settings,
+        deliveryLedger: new DeliveryLedger({
+          poolName: 'poolPromise',
+          module: 'RECEIPTREQ:dbo.depositReqNotification'
+        })
+      }
     });
   }
 }
 
-module.exports = DepositModule;
+module.exports = DepositReqModule;
