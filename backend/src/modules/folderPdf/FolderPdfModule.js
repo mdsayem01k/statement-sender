@@ -1,3 +1,4 @@
+const { EVENT_TYPES } = require('../../utils/auditEvents');
 const PdfDocumentModule = require('../../core/PdfDocumentModule');
 const { HttpError, NotFoundError } = require('../../core/errors');
 const PortfolioMapRepository = require('./PortfolioMapRepository');
@@ -85,9 +86,12 @@ class FolderPdfModule extends PdfDocumentModule {
   }
 
   async auditLogs(req, res) {
-    const { clientCode, date } = req.query;
+    const { clientCode, date, eventType = 'document' } = req.query;
+    if (!EVENT_TYPES.includes(eventType)) {
+      return res.status(400).json({ error: 'eventType must be all, document, proxy, notification or other' });
+    }
     if (date && isNaN(Date.parse(date))) return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
-    const logs = await this.ctx.audit.list({ resolvedCode: clientCode, date });
+    const logs = await this.ctx.audit.list({ resolvedCode: clientCode, date, eventType });
     res.json({ count: logs.length, data: logs });
   }
 

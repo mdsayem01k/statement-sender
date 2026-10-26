@@ -44,7 +44,7 @@ class ModuleRegistry {
 
   getPipeline() {
     if (!this.pipeline) {
-      const types = ['RECEIPTREQ', 'PAYMENT', 'BO_REGISTRATION','CITYAGENT'];
+      const types = ['RECEIPTREQ', 'RECEIPTVA', 'PAYMENT', 'BO_REGISTRATION', 'CITYAGENT'];
       this.pipeline = new NotificationPipeline(types.map(type => this.get(type)?.job).filter(Boolean));
     }
     return this.pipeline;

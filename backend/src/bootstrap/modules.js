@@ -7,7 +7,7 @@ const ModuleRegistry = require('../core/ModuleRegistry');
 const TradeConfirmationModule = require('../modules/tradeConfirmation');
 const PortfolioModule = require('../modules/portfolio');
 const DepositReqModule=require('../modules/depositReq')
-const DepositModule = require('../modules/deposit');
+const DepositVAModule = require('../modules/DepositVA');
 const BoRegistrationModule = require('../modules/boRegistration');
 const PaymentModule = require('../modules/payment');   // example: same receipt, other table
 const CityAgentModule = require('../modules/cityAgent');
@@ -17,12 +17,12 @@ function buildRegistry(ctx) {
     // .register(new TradeConfirmationModule(ctx))
     // .register(new PortfolioModule(ctx))
     // .register(new DepositReqModule(ctx))
-    // .register(new DepositModule(ctx))
+    .register(new DepositVAModule(ctx))
     // .register(new BoRegistrationModule(ctx))
     // .register(new PaymentModule(ctx));
-  if (String(process.env.CITYAGENT_ENABLED || '').toLowerCase() === 'true') {
-    registry.register(new CityAgentModule(ctx));
-  }
+  // if (String(process.env.CITYAGENT_ENABLED || '').toLowerCase() === 'true') {
+  //   registry.register(new CityAgentModule(ctx));
+  // }
   return registry;
 }
 

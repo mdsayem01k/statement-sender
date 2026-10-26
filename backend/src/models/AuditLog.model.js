@@ -1,5 +1,6 @@
 const Db = require('../core/Db');
 const env = require('../config/env');
+const { EVENT_TYPES, classifyAuditEvent, configuredProxyIps } = require('../utils/auditEvents');
 
 class AuditLogRepository {
   // adds the recipient_role column once (INVESTOR / RM). If that is not allowed, logging continues without it.
@@ -37,7 +38,10 @@ class AuditLogRepository {
           (@encryptoCode, @resolvedCode, @clientIp, @userAgent, @status, @statusCode, @errorMessage, @tradeDate, @deviceType, @osName, @browserName${withRole ? ', @recipientRole' : ''})`);
   }
 
-  async find({ resolvedCode, date }) {
+  async find({ resolvedCode, date, eventType = 'document' }) {
+    if (!EVENT_TYPES.includes(eventType)) {
+      throw new Error('Invalid audit event type');
+    }
     const { sql } = Db;
     const pool = await Db.pool();
     const request = pool.request().input('prefix', sql.VarChar(500), `${env.app.auditReportBaseUrl}/api/report/pdf?BOID=`);
@@ -45,7 +49,14 @@ class AuditLogRepository {
     if (resolvedCode) { request.input('resolvedCode', sql.VarChar(100), resolvedCode); query += ' AND resolved_code = @resolvedCode'; }
     if (date) { request.input('tradeDate', sql.Date, date); query += ' AND trade_date = @tradeDate'; }
     const result = await request.query(`${query} ORDER BY created_at DESC`);
-    return result.recordset;
+    const proxyIps = configuredProxyIps();
+    const rows = result.recordset.map(row => ({
+      ...row,
+      event_type: classifyAuditEvent(row, proxyIps)
+    }));
+    return eventType === 'all'
+      ? rows
+      : rows.filter(row => row.event_type === eventType);
   }
 }
 

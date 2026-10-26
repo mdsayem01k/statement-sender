@@ -23,8 +23,8 @@ export const modules = [
     slug: 'bo-registration'
   },
   {
-    type: 'RECEIPT',
-    name: 'Deposit',
+    type: 'RECEIPTVA',
+    name: 'Deposit VA',
     slug: 'deposit'
   },
   {

@@ -422,7 +422,7 @@ function Logs({ routes, daily = false }) {
     new URLSearchParams(location.search).get('module') || ''
   );
 
-  const [kind, setKind] = useState('');
+  const [kind, setKind] = useState(daily ? '' : 'document');
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -450,7 +450,8 @@ function Logs({ routes, daily = false }) {
 
       const data = await request(endpoint, {
         clientCode: code.trim(),
-        date
+        date,
+        eventType: 'all'
       });
 
       setRows(data.data || []);
@@ -466,7 +467,9 @@ function Logs({ routes, daily = false }) {
   const selected = rows.filter(
     row =>
       (!module || moduleType(row.status) === module) &&
-      (!kind || classify(row.status) === kind)
+      (daily
+        ? (!kind || classify(row.status) === kind)
+        : (kind === 'all' || row.event_type === kind))
   );
 
   const notifications = selected.filter(
@@ -533,6 +536,15 @@ function Logs({ routes, daily = false }) {
       render: row => row.resolved_code || '—'
     },
     {
+      label: 'Event',
+      render: row => ({
+        document: 'Document request',
+        proxy: 'Known proxy request',
+        notification: 'Notification',
+        other: 'Other'
+      }[row.event_type] || 'Other')
+    },
+    {
       label: 'Status',
       render: row => (
         <span className={`badge ${classify(row.status)}`}>
@@ -569,12 +581,12 @@ function Logs({ routes, daily = false }) {
 
   return (
     <>
-      <h1>{daily ? 'Daily Report' : 'Access Logs'}</h1>
+      <h1>{daily ? 'Daily Report' : 'Document Access Log'}</h1>
 
       <p className="subtitle">
         {daily
           ? 'Recorded notification sends and errors, across all modules.'
-          : 'Document access, notification results, and errors from the shared audit log.'}
+          : 'PDF requests are shown by default. Known proxy requests and notification events are available through the Event filter. A PDF request does not confirm that the document was read.'}
       </p>
 
       <form className="panel filters" onSubmit={load}>
@@ -619,10 +631,21 @@ function Logs({ routes, daily = false }) {
             value={kind}
             onChange={event => setKind(event.target.value)}
           >
-            <option value="">All events</option>
-            <option value="sent">Sent</option>
-            <option value="error">Error</option>
-            <option value="access">Document access</option>
+            {daily ? (
+              <>
+                <option value="">All events</option>
+                <option value="sent">Sent</option>
+                <option value="error">Error</option>
+                <option value="access">Document access</option>
+              </>
+            ) : (
+              <>
+                <option value="document">Document requests</option>
+                <option value="proxy">Known proxy requests</option>
+                <option value="notification">Notifications</option>
+                <option value="all">All audit events</option>
+              </>
+            )}
           </select>
         </label>
 
@@ -898,12 +921,12 @@ export default function App() {
 
               <Route
                 path="/logs"
-                element={<Logs routes={routes} />}
+                element={<Logs key="document" routes={routes} />}
               />
 
               <Route
                 path="/reports"
-                element={<Logs routes={routes} daily />}
+                element={<Logs key="daily" routes={routes} daily />}
               />
 
               <Route

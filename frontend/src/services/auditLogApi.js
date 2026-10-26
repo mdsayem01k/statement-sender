@@ -1,7 +1,7 @@
 const API_BASE = import.meta.env.VITE_API_BASE;
 
 export async function fetchAuditLogs({ code, tradeDate } = {}) {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ eventType: 'document' });
   if (code) params.set('clientCode', code);
   if (tradeDate) params.set('date', tradeDate);
 

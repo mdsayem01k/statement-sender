@@ -7,7 +7,7 @@ const ROOT = path.join(__dirname, '../..');
 module.exports = {
   // trade confirmation PDFs
   NETWORK_PDF_DIR: env.network.pdfShareDir,
-  LOCAL_PDF_ROOT: path.join(ROOT, 'storage/pdfs'),
+  TradeConfirmationModule_PDF_ROOT: path.join(ROOT, 'storage/pdfs'),
 
   // portfolio PDFs (different folder, same logic)
   PORTFOLIO_NETWORK_DIR: env.network.portfolioShareDir,

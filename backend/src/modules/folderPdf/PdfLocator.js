@@ -8,7 +8,11 @@ const MONTHS = [
 ];
 
 function dateKey(value) {
-  if (value === null || value === undefined || value === '') {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
     throw new Error('PDF document date is missing');
   }
 
@@ -40,7 +44,9 @@ function dateKey(value) {
     day = date.getUTCDate();
   }
 
-  const validated = new Date(Date.UTC(year, month - 1, day));
+  const validated = new Date(
+    Date.UTC(year, month - 1, day)
+  );
 
   if (
     validated.getUTCFullYear() !== year ||
@@ -77,11 +83,21 @@ class PdfLocator {
     networkDir,
     localRoot,
     filePrefix,
-    archiveRoot = null
+    archiveRoot = null,
+    localFolderLayout = 'date'
   }) {
     this.networkDir = networkDir;
     this.localRoot = localRoot;
     this.filePrefix = filePrefix;
+
+    if (
+      !['date', 'month-day'].includes(localFolderLayout)
+    ) {
+      throw new Error('Invalid local PDF folder layout');
+    }
+
+    this.localFolderLayout = localFolderLayout;
+
     this.archiveRoot =
       typeof archiveRoot === 'string'
         ? archiveRoot.trim()
@@ -95,7 +111,9 @@ class PdfLocator {
       !investorCode ||
       /[\\/:*?"<>|]/.test(investorCode)
     ) {
-      throw new Error('Invalid investor code for PDF lookup');
+      throw new Error(
+        'Invalid investor code for PDF lookup'
+      );
     }
 
     return path.basename(
@@ -120,6 +138,12 @@ class PdfLocator {
     const dayFolder = `${day}${month}${year}`;
 
     return path.join(monthFolder, dayFolder);
+  }
+
+  localFolder(date) {
+    return this.localFolderLayout === 'month-day'
+      ? this.archiveFolder(date)
+      : this.dayFolder(date);
   }
 
   locate(code, insertDate = null) {
@@ -160,11 +184,22 @@ class PdfLocator {
       candidates.push([
         path.join(
           this.localRoot,
-          documentDate,
+          this.localFolder(insertDate),
           name
         ),
         'local-original-date'
       ]);
+
+      if (this.localFolderLayout === 'month-day') {
+        candidates.push([
+          path.join(
+            this.localRoot,
+            documentDate,
+            name
+          ),
+          'local-legacy-original-date'
+        ]);
+      }
     }
 
     if (
@@ -197,10 +232,9 @@ class PdfLocator {
           errors
         };
       } catch (error) {
-        const detail =
-          `${error.code || 'FILE_ERROR'}: ${filePath}`;
-
-        errors.push(detail);
+        errors.push(
+          `${error.code || 'FILE_ERROR'}: ${filePath}`
+        );
 
         if (
           error.code !== 'ENOENT' &&
@@ -219,6 +253,8 @@ class PdfLocator {
       investorCode: code,
       documentDate,
       archiveRoot: this.archiveRoot,
+      localRoot: this.localRoot,
+      localFolderLayout: this.localFolderLayout,
       filePrefix: this.filePrefix,
       checkedPaths,
       errors

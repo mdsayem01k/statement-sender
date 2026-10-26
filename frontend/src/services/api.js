@@ -72,8 +72,8 @@ export function moduleType(status = '') {
     return 'RECEIPTREQ';
   }
 
-  if (status.startsWith('RECEIPT_')) {
-    return 'RECEIPT';
+  if (status.startsWith('RECEIPTVA_') || status.startsWith('RECEIPT_')) {
+    return 'RECEIPTVA';
   }
 
   for (const type of [

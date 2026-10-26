@@ -19,8 +19,9 @@ class TradeConfirmationModule extends FolderPdfModule {
       urlBase: ctx.env.app.statementsBaseUrl,
       locator: new PdfLocator({
         networkDir: paths.NETWORK_PDF_DIR,
-        localRoot: paths.LOCAL_PDF_ROOT,
+        localRoot: paths.TradeConfirmationModule_PDF_ROOT,
         filePrefix: 'ConfirmationNote_',
+        localFolderLayout: 'month-day',
         archiveRoot: process.env.TRADE_PDF_ARCHIVE_ROOT,
         archiveFolderTemplate:
           process.env.TRADE_PDF_FOLDER_TEMPLATE || 'trade-({date})'

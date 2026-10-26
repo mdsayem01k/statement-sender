@@ -16,8 +16,8 @@ class AuditService {
     }
   }
 
-  list({ resolvedCode, date }) {
-    return this.repository.find({ resolvedCode, date });
+  list({ resolvedCode, date, eventType = 'document' }) {
+    return this.repository.find({ resolvedCode, date, eventType });
   }
 }
 

@@ -32,7 +32,12 @@ class PdfBatchCopier {
     const { networkDir, localRoot } = this.locator;
     const codes = await this.expectedCodes(scheduleID);
     const sourceCount = (await this.listSourcePdfs()).length;
-    const destDir = path.join(localRoot, this.locator.todayFolder());
+    const documentDate = this.locator.todayFolder();
+
+    const destDir = path.join(
+      localRoot,
+      this.locator.localFolder(documentDate)
+    );
 
     const summary = {
       scheduleID, expectedCount: codes.length, sourceCount,
