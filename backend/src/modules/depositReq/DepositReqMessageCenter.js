@@ -206,11 +206,26 @@ class DepositReqMessageCenter extends MessageCenter {
     ) {
       const template = this.templates[options.type];
 
+      const greeting = options.type === 'DEPOSIT_APPROVE'
+        ? {
+            CSD: 'Dear CSD Team,',
+            FINACC: 'Dear FINANCE Team,'
+          }[recipient.role]
+        : null;
+
+      const groupText = template?.textRM ?? template?.text;
+
+      const renderedGroupTemplate =
+        greeting && typeof groupText === 'string'
+          ? groupText.replace(/^Dear RM,/i, greeting)
+          : groupText;
+
       const templates = {
         ...this.templates,
         [options.type]: {
           ...template,
-          text: template?.textRM ?? template?.text
+          text: renderedGroupTemplate,
+          textRM: renderedGroupTemplate
         }
       };
 

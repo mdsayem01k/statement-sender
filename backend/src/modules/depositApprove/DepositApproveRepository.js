@@ -53,8 +53,7 @@ class DepositApproveRepository extends ReceiptRepository {
         JOIN dbo.Setup_tblInvestor i ON i.InvestorID = p.InvestorID
         JOIN dbo.Payments_tblPayMode pm ON pm.PayModeID = p.PayModeID
         LEFT JOIN dbo.Trade_tblTraderList t ON t.TRADERID = i.TraderID
-        WHERE p.PaymentDate >= CONVERT(DATETIME2, @since, 126)
-          AND p.PaymentDate < DATEADD(DAY, 1, @businessDate)
+        WHERE p.PaymentDate=(SELECT DATEADD(DAY,1,(SELECT MAX(EODDate) FROM EOD_tblInvestorPortfolioValuesByDate)))
           AND p.PaymentTypeID = 1
           AND p.PayModeID NOT IN (4, 8)
         ORDER BY p.PaymentDate, p.paymentID;`);

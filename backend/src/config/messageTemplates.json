@@ -59,8 +59,8 @@
   }
 },
   "DEPOSIT_APPROVE": {
-    "text": "Thank you for choosing City Brokerage Ltd. Your deposit of BDT {{amount}} for Investor {{Investor}} has been approved.\nPayment date: {{paymentDate}}\n{{paymentMode}}",
-    "textRM": "A deposit of BDT {{amount}} for Investor {{Investor}} has been approved.\nPayment date: {{paymentDate}}\n{{paymentMode}}",
+    "text": "Thank you for choosing City Brokerage Ltd. Your deposit of BDT {{amount}} for Investor {{Investor}} has been approved and credited to your Ledger and Portfolio accordingly.\n*Payment date:* {{paymentDate}}\n",
+    "textRM": "Dear RM,\nA deposit of BDT {{amount}} for Investor {{Investor}} has been approved and credited to the client's Ledger and Portfolio.\nPayment date: {{paymentDate}}\nPlease verify the updated Ledger and Portfolio accordingly.\n\n— City Brokerage Limited IT",
     "email": {
       "subject": "Deposit Approved - City Brokerage Limited",
       "html": "<p>Your deposit of <strong>BDT {{amount}}</strong> for Investor <strong>{{Investor}}</strong> has been approved.</p><p>Payment date: {{paymentDate}}</p><p>{{paymentMode}}</p>"
