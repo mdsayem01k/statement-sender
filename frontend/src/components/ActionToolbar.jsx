@@ -42,7 +42,7 @@ export default function ActionToolbar({
         route.path === `/api${path}`
     );
 
-  const generate = '/portfoliomap/generate';
+  const generate = module.generate || '/portfoliomap/generate';
   const copy = `${module.prefix}/copy-pdfs`;
 
   const canGenerate = supports('GET', generate);
@@ -309,12 +309,12 @@ export default function ActionToolbar({
 
       {supports('GET', module.notify) && (
         <div className="actions bulk-actions">
-          <button
+          {/* <button
             disabled={busy || !targets.length}
             onClick={() => bulk('mobile')}
           >
             Send all WhatsApp / SMS
-          </button>
+          </button> */}
 
           <button
             disabled={busy || !targets.length}

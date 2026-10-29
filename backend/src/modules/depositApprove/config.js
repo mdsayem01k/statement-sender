@@ -1,7 +1,7 @@
 function booleanSetting(env, key, fallback) {
-  const value = String(
-    env[key] ?? fallback
-  ).trim().toLowerCase();
+  const value = String(env[key] ?? fallback)
+    .trim()
+    .toLowerCase();
 
   if (!['true', 'false'].includes(value)) {
     throw new Error(`${key} must be true or false`);
@@ -13,13 +13,8 @@ function booleanSetting(env, key, fallback) {
 function cutoff(value, key) {
   const text = String(value || '').trim();
 
-  const pattern =
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
-
-  if (!pattern.test(text)) {
-    throw new Error(
-      `${key} must be YYYY-MM-DDTHH:mm:ss`
-    );
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(text)) {
+    throw new Error(`${key} must be YYYY-MM-DDTHH:mm:ss`);
   }
 
   const date = new Date(`${text}Z`);
@@ -53,6 +48,11 @@ function config(env = process.env) {
   const rmGroup = cutoff(
     env.DEPOSITAPPROVE_RM_GROUP_NOTIFY_SINCE || notify.text,
     'DEPOSITAPPROVE_RM_GROUP_NOTIFY_SINCE'
+  );
+
+  const csdGroup = cutoff(
+    env.DEPOSITAPPROVE_CSD_GROUP_NOTIFY_SINCE || notify.text,
+    'DEPOSITAPPROVE_CSD_GROUP_NOTIFY_SINCE'
   );
 
   if (sync.date > notify.date) {
@@ -101,25 +101,55 @@ function config(env = process.env) {
     true
   );
 
-  const rmGroupSessionId = String(
-    env.DEPOSITAPPROVE_RM_GROUP_SESSION_ID || ''
+  const csdGroupEnabled = booleanSetting(
+    env,
+    'DEPOSITAPPROVE_CSD_GROUP_ENABLED',
+    false
+  );
+
+  const csdGroupName = String(
+    env.DEPOSITAPPROVE_CSD_GROUP_NAME ?? 'CBL IT & CSD'
   ).trim();
+
+  const csdGroupSessionId = String(
+    env.DEPOSITAPPROVE_CSD_GROUP_SESSION_ID ?? 'BT'
+  ).trim();
+
+  if (csdGroupEnabled && (!csdGroupName || !csdGroupSessionId)) {
+    throw new Error(
+      'DEPOSITAPPROVE CSD group name and session must not be empty'
+    );
+  }
 
   return {
     messageType: 'DEPOSIT_APPROVE',
-    testGroup: String(env.DEPOSITAPPROVE_TEST_GROUP || '').trim(),
     syncSince: sync.text,
     notifySince: notify.date,
     groupSince: financeGroup.date,
     rmGroupSince: rmGroup.date,
+    csdGroupSince: csdGroup.date,
     mobileFirst,
     whatsappEnabled,
     smsEnabled,
     mobileEnabled: whatsappEnabled || smsEnabled,
     emailEnabled,
     rmGroupEnabled,
-    rmGroupSessionId,
-    groupEnabled
+    groupEnabled,
+    csdGroupEnabled,
+    csdGroupName,
+    csdGroupSessionId,
+    rmGroupSessionId: String(
+      env.DEPOSITAPPROVE_RM_GROUP_SESSION_ID || ''
+    ).trim(),
+    financeGroupSessionId: String(
+      env.DEPOSITAPPROVE_FINACC_GROUP_SESSION_ID || ''
+    ).trim(),
+    testGroupSessionId: String(
+      env.DEPOSITAPPROVE_TEST_GROUP_SESSION_ID || ''
+    ).trim(),
+    testGroup: String(
+      env.DEPOSITAPPROVE_TEST_GROUP || ''
+    ).trim()
   };
 }
 

@@ -1,18 +1,17 @@
 const { EVENT_TYPES } = require('../../utils/auditEvents');
 const PdfDocumentModule = require('../../core/PdfDocumentModule');
 const { HttpError, NotFoundError } = require('../../core/errors');
-const PortfolioMapRepository = require('./PortfolioMapRepository');
+const UtilAutoUrlRepository = require('./UtilAutoUrlRepository');
 const PdfBatchCopier = require('./PdfBatchCopier');
 const UrlCodeMapService = require('./UrlCodeMapService');
 
 const VIA = { mobile: ['MOBILE'], email: ['EMAIL'], all: ['MOBILE', 'EMAIL'] };
 
-// A PDF that already exists in a folder (made by another system), found through the portfolioMap url code.
 // Trade confirmation and Portfolio are two instances of THIS class with different folder settings.
 class FolderPdfModule extends PdfDocumentModule {
   constructor({
     locator,                       // PdfLocator: where the PDFs are
-    repository = new PortfolioMapRepository(),
+    repository = null,
     adminPrefix,                   // '/report' -> /report/resolve-code, /audit-logs, /urls, /copy-pdfs
     notifyRoute,                   // '/notify/trade-confirmation?code=X&via=mobile|email|all'
     generateRoute = null,          // '/portfoliomap/generate' (optional)
@@ -23,17 +22,24 @@ class FolderPdfModule extends PdfDocumentModule {
   }) {
     super({ auditPrefix: '', ...pdf });
     this.locator = locator;
-    this.repository = repository;
     this.adminPrefix = adminPrefix;
     this.notifyRoute = notifyRoute;
     this.generateRoute = generateRoute;
     this.legacy = legacy;
-    this.urlBase = urlBase || this.ctx.env.app.pdfBaseUrl;
+    this.urlBase = String(urlBase || this.ctx.env.app.pdfBaseUrl || '').trim().replace(/\/+$/, '');
     this.scheduleId = scheduleId;
-    this.copier = new PdfBatchCopier({ locator, expectedCodes: (id) => repository.expectedClientCodes(id) });
-    this.codeMap = new UrlCodeMapService({ repository, locator });
+    this.repository = repository || new UtilAutoUrlRepository({
+      refID: this.type === 'PORTFOLIO' ? 1 : 2,
+      linkPrefix: `${this.urlBase}${this.linkTemplate.replace('{code}', '')}`
+    });
+    this.copier = new PdfBatchCopier({ locator, expectedCodes: (id) => this.repository.expectedClientCodes(id) });
+    this.codeMap = new UrlCodeMapService({ repository: this.repository, locator });
     ['resolveCode', 'auditLogs', 'urls', 'copyPdfs', 'generateAll', 'generateOne', 'notify', 'notifyMobile', 'notifyEmail']
       .forEach((m) => { this[m] = this[m].bind(this); });
+  }
+
+  link(code, baseUrl = this.urlBase || this.ctx.env.app.pdfBaseUrl) {
+    return super.link(code, baseUrl);
   }
 
   /* ---- PDF serving ---- */
@@ -145,7 +151,7 @@ class FolderPdfModule extends PdfDocumentModule {
     }
     const contact = await this.repository.findContactByCode(code, urlcode);
     if (!contact) {
-      await this.ctx.audit.save({ ...who, resolvedCode: code, status: 'FAILED', statusCode: 404, errorMessage: 'Portfolio mapping not found' });
+      await this.ctx.audit.save({ ...who, resolvedCode: code, status: 'FAILED', statusCode: 404, errorMessage: 'UTIL_Auto_URL mapping not found' });
       throw new HttpError(404, 'Document mapping not found for this investor and URL code.');
     }
 

@@ -14,6 +14,8 @@ class PortfolioModule extends FolderPdfModule {
       pdfRoutes: ['/report/portfolio'],
       auditPrefix: 'PORTFOLIO_',
       adminPrefix: '/portfolio',
+      scheduleId: 1,
+      generateRoute: '/portfolio/generate',
       notifyRoute: '/notify/portfolio',
       locator: new PdfLocator({
         networkDir: paths.PORTFOLIO_NETWORK_DIR,

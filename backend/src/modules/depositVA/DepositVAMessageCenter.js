@@ -126,7 +126,7 @@ class DepositVAMessageCenter extends MessageCenter {
     }
 
     const groupEnabled =
-      settings.rmGroupEnabled || settings.groupEnabled;
+      settings.rmGroupEnabled || settings.groupEnabled || settings.csdGroupEnabled;
 
     const configuredGroup = (
       shared.chains.GROUP || []
@@ -172,7 +172,7 @@ class DepositVAMessageCenter extends MessageCenter {
 
     if (
       via === 'GROUP' &&
-      options.recipient?.role === 'RM_GROUP'
+      ['RM_GROUP', 'CSD'].includes(options.recipient?.role)
     ) {
       const template = this.templates[options.type];
 

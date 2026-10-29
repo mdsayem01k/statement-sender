@@ -14,6 +14,9 @@ class DepositVAGroupChannel extends Channel {
       recipient.role === 'RM_GROUP' &&
       this.settings.rmGroupEnabled
     ) || (
+      recipient.role === 'CSD' &&
+      this.settings.csdGroupEnabled
+    ) || (
       recipient.role === 'FINACC' &&
       this.settings.groupEnabled
     );
@@ -32,11 +35,16 @@ class DepositVAGroupChannel extends Channel {
 
     const isRmGroup = recipient.role === 'RM_GROUP';
 
-    const groupName = isRmGroup
+    const isCsd = recipient.role === 'CSD';
+    const groupName = isCsd
+      ? this.settings.csdGroupName
+      : isRmGroup
       ? String(recipient.groupName || '').trim()
       : this.config.AccgroupName || 'Cbl Finance & IT';
 
-    const sessionId = isRmGroup
+    const sessionId = isCsd
+      ? this.settings.csdGroupSessionId
+      : isRmGroup
       ? this.settings.rmGroupSessionId ||
         this.config.groupSessionId ||
         'it'

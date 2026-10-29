@@ -1,5 +1,6 @@
 const axios = require('axios');
 const Channel = require('../../channels/Channel');
+const whatsappRequest = require('./whatsappRequest');
 
 class DepositReqGroupChannel extends Channel {
   constructor(config, settings) {
@@ -13,10 +14,13 @@ class DepositReqGroupChannel extends Channel {
     return (
       recipient.role === 'DEMO_GROUP' &&
       Boolean(this.settings.testGroup) &&
-      (this.settings.rmGroupEnabled || this.settings.groupEnabled)
+      (this.settings.rmGroupEnabled || this.settings.groupEnabled || this.settings.csdGroupEnabled)
     ) || (
       recipient.role === 'RM_GROUP' &&
       this.settings.rmGroupEnabled
+    ) || (
+      recipient.role === 'CSD' &&
+      this.settings.csdGroupEnabled
     ) || (
       recipient.role === 'FINACC' &&
       this.settings.groupEnabled
@@ -34,21 +38,28 @@ class DepositReqGroupChannel extends Channel {
       throw error;
     }
 
+    const first = (...values) => values.map(value => String(value || '').trim()).find(Boolean) || '';
     const isRmGroup = recipient.role === 'RM_GROUP';
+    const isDemoGroup = recipient.role === 'DEMO_GROUP';
+    const isCsd = recipient.role === 'CSD';
+    const groupName = isDemoGroup
+      ? first(this.settings.testGroup)
+      : isCsd
+        ? first(this.settings.csdGroupName)
+        : isRmGroup
+        ? first(recipient.groupName)
+        : first(this.config.AccgroupName, 'Cbl Finance & IT');
+    const sessionId = first(
+      isDemoGroup ? this.settings.testGroupSessionId :
+        isCsd ? this.settings.csdGroupSessionId :
+        isRmGroup ? this.settings.rmGroupSessionId : this.settings.financeGroupSessionId,
+      this.config.groupSessionId,
+      this.config.sessionId,
+      'BT'
+    );
+    const baseUrl = String(this.config.baseUrl || '').trim().replace(/\/+$/, '');
 
-    const groupName = recipient.role === 'DEMO_GROUP'
-      ? this.settings.testGroup
-      : isRmGroup
-      ? String(recipient.groupName || '').trim()
-      : this.config.AccgroupName || 'Cbl Finance & IT';
-
-    const sessionId = isRmGroup
-      ? this.settings.rmGroupSessionId ||
-        this.config.groupSessionId ||
-        'it'
-      : this.config.groupSessionId || 'it';
-
-    if (!this.config.baseUrl || !groupName) {
+    if (!baseUrl || !groupName) {
       const error = new Error(
         'Deposit Requisition group configuration is missing'
       );
@@ -58,38 +69,12 @@ class DepositReqGroupChannel extends Channel {
       throw error;
     }
 
-    const response = await axios.post(
-      `${this.config.baseUrl}/BT/api/whatsapp/send-text-to-group`,
-      {
-        sessionId,
-        groupName,
-        message: text
-      },
-      {
-        timeout: this.config.timeoutMs
-      }
+    return whatsappRequest(
+      axios,
+      `${baseUrl}/BT/api/whatsapp/send-text-to-group`,
+      { sessionId, groupName, message: text },
+      { timeout: this.config.timeoutMs }
     );
-
-    if (response.data?.success === false) {
-      const error = new Error(
-        String(
-          response.data.error ||
-          'WhatsApp group request rejected'
-        ).split('\n')[0]
-      );
-
-      error.definitelyNotSent = true;
-
-      throw error;
-    }
-
-    if (response.data?.success !== true) {
-      throw new Error(
-        'Uncertain WhatsApp group response; verify before retrying'
-      );
-    }
-
-    return response.data;
   }
 }
 

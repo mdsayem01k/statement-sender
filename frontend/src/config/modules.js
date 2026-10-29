@@ -6,7 +6,8 @@ export const modules = [
   scheduleId: 2,
   prefix: '/report',
   notify: '/notify/trade-confirmation',
-  pdf: '/report/pdf'
+  pdf: '/confiramation',
+  generate: '/portfoliomap/generate'
 },
 {
   type: 'PORTFOLIO',
@@ -15,7 +16,8 @@ export const modules = [
   scheduleId: 1,
   prefix: '/portfolio',
   notify: '/notify/portfolio',
-  pdf: '/report/portfolio'
+  pdf: '/report/portfolio',
+  generate: '/portfolio/generate'
 },
   {
     type: 'BO_REGISTRATION',

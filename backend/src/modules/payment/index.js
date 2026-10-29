@@ -1,25 +1,31 @@
 const ReceiptModule = require('../receipt/ReceiptModule');
 const PaymentRepository = require('./PaymentRepository');
-const { flag } = require('../../utils/flag');
+const DeliveryLedger = require('../../services/DeliveryLedger');
+const PaymentNotificationJob = require('./PaymentNotificationJob');
+const PaymentMessageCenter = require('./PaymentMessageCenter');
+const { config } = require('./config');
 
-
-// EXAMPLE module (NOT registered yet). To switch it on: add one line in bootstrap/modules.js.
 class PaymentModule extends ReceiptModule {
   constructor(ctx) {
+    const settings = config();
+    const messageCenter = new PaymentMessageCenter(ctx.messageCenter, settings);
     super({
-      ctx,
-      type: 'PAYMENT',                                       // template key in config/messageTemplates.json
-      label: 'Payment Receipt',
+      ctx: { ...ctx, messageCenter },
+      type: 'PAYMENT',
+      label: 'Withdrawal Request',
       linkTemplate: '/api/report/payment/id={code}',
       pdfRoutes: ['/report/payment/:param', '/report/payment'],
       auditPrefix: 'PAYMENT_',
-      repository: new PaymentRepository(),
+      repository: new PaymentRepository(settings),
       tranType: 'PAYMENT',
+      jobClass: PaymentNotificationJob,
       job: {
-        notifyRm: flag(process.env.RM_NOTIFY_DEPOSIT),
-        intervalMin: Number(process.env.PAYMENT_SYNC_INTERVAL_MIN || 1),
-        notifySince: process.env.PAYMENT_NOTIFY_SINCE ? new Date(process.env.PAYMENT_NOTIFY_SINCE) : null,
-      },
+        settings,
+        deliveryLedger: new DeliveryLedger({
+          poolName: 'poolPromise',
+          module: 'PAYMENT:dbo.WithdrawalRequestNotification'
+        })
+      }
     });
   }
 }

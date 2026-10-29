@@ -1,6 +1,5 @@
 const Db = require('../../core/Db');
 const ReceiptRepository = require('../receipt/ReceiptRepository');
-const RmRepository = require('../rm/RmRepository');
 
 const norm = (v) => String(v ?? '').trim().toUpperCase();
 
@@ -12,7 +11,6 @@ class ChequeRepository extends ReceiptRepository {
       idColumn: 'ChequeID',
       sourcePool: 'BOpoolPromise',
     });
-    this.rmRepo = new RmRepository();
     this.settings = settings;
     this.sinceColumn = 's.SourceInTimestamp';
 
@@ -30,7 +28,8 @@ class ChequeRepository extends ReceiptRepository {
             )
           ) AS Whatsapp_group
         FROM dbo.rm_info r
-        WHERE r.tradercode = s.Trader
+        WHERE UPPER(LTRIM(RTRIM(r.tradercode))) =
+          UPPER(LTRIM(RTRIM(s.Trader)))
         HAVING COUNT(
           DISTINCT NULLIF(
             LTRIM(RTRIM(r.Whatsapp_group)),
@@ -42,11 +41,10 @@ class ChequeRepository extends ReceiptRepository {
   }
 
 
-  async fetchNewFromSource(afterId) {
+  async fetchNewFromSource() {
     const { sql } = Db;
     const p = await Db.pool(this.sourcePool);
     const r = await p.request()
-      .input('last', sql.Int, afterId)
       .input('since', sql.VarChar(19), this.settings.syncSince)
       .query(`
 SELECT d.RecordID AS ChequeID,
@@ -56,12 +54,26 @@ SELECT d.RecordID AS ChequeID,
        NULL AS ReferenceNumber,
        d.InTimeStamp AS SourceInTimestamp
 FROM dbo.Payments_tblDepositRequisition d
-WHERE d.RecordID > @last
-  AND d.InTimeStamp >= CONVERT(DATETIME2, @since, 126)
+WHERE d.InTimeStamp >= CONVERT(DATETIME2, @since, 126)
 ORDER BY d.RecordID`);
 
-    const enriched = await this.attachInvestorInfo(r.recordset);
-    return this.rmRepo.attach(enriched);
+    const seen = new Set();
+    if (!r.recordset.length) return [];
+    const local = await this.pool();
+    for (let start = 0; start < r.recordset.length; start += 500) {
+      const batch = r.recordset.slice(start, start + 500);
+      const request = local.request();
+      const names = batch.map((row, index) => {
+        request.input(`id${index}`, sql.Int, row.ChequeID);
+        return `@id${index}`;
+      });
+      const existing = await request.query(`
+        SELECT ChequeID FROM ${this.syncTable}
+        WHERE ChequeID IN (${names.join(',')})`);
+      for (const row of existing.recordset) seen.add(String(row.ChequeID));
+    }
+    const pending = r.recordset.filter(row => !seen.has(String(row.ChequeID)));
+    return this.attachInvestorInfo(pending);
   }
 
   async attachInvestorInfo(rows) {
@@ -88,9 +100,11 @@ ORDER BY d.RecordID`);
       const info = map.get(norm(x.InvestorCode));
       return {
         ...x,
-        CellNo: info?.CellNo || null,
-        Email: info?.Email || null,
-        Trader: info?.Trader || null,
+        CellNo: String(info?.CellNo || '').split(',')[0].trim() || null,
+        Email: String(info?.Email || '').split(',')[0].trim() || null,
+        Trader: String(info?.Trader || '').trim() || null,
+        RmMobile: null,
+        RmEmail: null,
       };
     });
   }
@@ -128,15 +142,18 @@ ORDER BY d.RecordID`);
         sql.NVarChar(60),
         this.bare
       )
+      .input('csd', sql.Bit, Boolean(c.csdGroupEnabled) && !c.testGroup)
+      .input('csdGroupSince', sql.DateTime, c.csdGroupSince || c.notifySince)
       .input('mobile', sql.Bit, c.mobileEnabled)
       .input('email', sql.Bit, c.emailEnabled)
       .input('rmGroup', sql.Bit, c.rmGroupEnabled && !c.testGroup)
       .input('group', sql.Bit, c.groupEnabled && !c.testGroup)
-      .input('demo', sql.Bit, Boolean(c.testGroup) && (c.rmGroupEnabled || c.groupEnabled))
+      .input('demo', sql.Bit, Boolean(c.testGroup) && (c.rmGroupEnabled || c.groupEnabled || c.csdGroupEnabled))
       .input('demoSince', sql.DateTime, new Date(Math.min(
         ...(c.rmGroupEnabled ? [c.rmGroupSince.getTime()] : []),
         ...(c.groupEnabled ? [c.groupSince.getTime()] : []),
-        ...(!c.rmGroupEnabled && !c.groupEnabled ? [c.notifySince.getTime()] : [])
+        ...(c.csdGroupEnabled ? [(c.csdGroupSince || c.notifySince).getTime()] : []),
+        ...(!c.rmGroupEnabled && !c.groupEnabled && !c.csdGroupEnabled ? [c.notifySince.getTime()] : [])
       )))
       .query(`
         UPDATE dbo.NotificationDelivery
@@ -163,9 +180,13 @@ ORDER BY d.RecordID`);
                 ('INVESTOR', 'EMAIL'),
                 ('RM_GROUP', 'GROUP'),
                 ('FINACC', 'GROUP'),
+                ('CSD', 'GROUP'),
                 ('DEMO_GROUP', 'GROUP')
             ) v(Role, Via)
             WHERE (
+              (v.Role = 'CSD' AND v.Via = 'GROUP'
+                AND @csd = 1 AND s.SourceInTimestamp >= @csdGroupSince)
+              OR
               (v.Role = 'DEMO_GROUP' AND v.Via = 'GROUP'
                 AND @demo = 1 AND s.SourceInTimestamp >= @demoSince)
               OR

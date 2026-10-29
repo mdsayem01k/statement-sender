@@ -112,6 +112,8 @@ class ChequeRepository extends ReceiptRepository {
         sql.NVarChar(60),
         this.bare
       )
+      .input('csd', sql.Bit, Boolean(c.csdGroupEnabled) && !c.testGroup)
+      .input('csdGroupSince', sql.DateTime, c.csdGroupSince || c.notifySince)
       .input('mobile', sql.Bit, c.mobileEnabled)
       .input('email', sql.Bit, c.emailEnabled)
       .input('rmGroup', sql.Bit, c.rmGroupEnabled)
@@ -140,9 +142,13 @@ class ChequeRepository extends ReceiptRepository {
                 ('INVESTOR', 'MOBILE'),
                 ('INVESTOR', 'EMAIL'),
                 ('RM_GROUP', 'GROUP'),
-                ('FINACC', 'GROUP')
+                ('FINACC', 'GROUP'),
+                ('CSD', 'GROUP')
             ) v(Role, Via)
             WHERE (
+              (v.Role = 'CSD' AND v.Via = 'GROUP'
+                AND @csd = 1 AND s.SourceInTimestamp >= @csdGroupSince)
+              OR
               (
                 v.Role = 'INVESTOR'
                 AND v.Via = 'MOBILE'

@@ -69,6 +69,35 @@ class DepositReqNotificationJob extends ReceiptNotificationJob {
     this.groupSince = settings.groupSince;
   }
 
+  async syncSource() {
+    const repo = this.repository;
+    const rows = await repo.fetchNewFromSource();
+    let stored = 0;
+    let created = 0;
+    let failed = 0;
+    for (const row of rows) {
+      try {
+        stored += await repo.insertSyncRow(row);
+      } catch (error) {
+        failed++;
+        console.error(`[${this.name} SYNC] ${row.ChequeID}:`, error.message);
+      }
+    }
+    for (const row of await repo.findWithoutNotification()) {
+      try {
+        const ok = await this.withNewCode(row.InvestorCode || row.SourceId, code =>
+          repo.insertNotification({ ...row, UrlCode: code }));
+        if (ok) created++;
+      } catch (error) {
+        failed++;
+        console.error(`[${this.name} SYNC] notification ${row.SourceId}:`, error.message);
+      }
+    }
+    const stats = { fetched: rows.length, stored, created, failed };
+    console.log(`[${this.name} SYNC]`, stats);
+    return stats;
+  }
+
   buildRecipients(row) {
     const investor = {
       role: 'INVESTOR',
@@ -82,17 +111,23 @@ class DepositReqNotificationJob extends ReceiptNotificationJob {
       row.RmWhatsappGroup ||
       ''
     ).trim();
-    
+
     if (this.settings.testGroup) {
       const eligible =
         (this.settings.rmGroupEnabled && sourceDate >= this.settings.rmGroupSince) ||
-        (this.notifyGroup && sourceDate >= this.groupSince);
+        (this.notifyGroup && sourceDate >= this.groupSince) ||
+        (this.settings.csdGroupEnabled && sourceDate >= this.settings.csdGroupSince);
       if (eligible) recipients.push({
         role: 'DEMO_GROUP',
         name: investor.name,
         groupName: this.settings.testGroup
       });
       return recipients;
+    }
+
+    if (this.settings.rmGroupEnabled && !rmGroupName &&
+        sourceDate >= this.settings.rmGroupSince) {
+      console.warn(`[${this.name} NOTIFY] RM_GROUP skipped for ${row.Id}: missing or conflicting rm_info.Whatsapp_group mapping`);
     }
 
     if (
@@ -114,6 +149,14 @@ class DepositReqNotificationJob extends ReceiptNotificationJob {
       recipients.push({
         role: 'FINACC',
         name: investor.name
+      });
+    }
+
+    if (this.settings.csdGroupEnabled && sourceDate >= this.settings.csdGroupSince) {
+      recipients.push({
+        role: 'CSD',
+        name: investor.name,
+        groupName: this.settings.csdGroupName
       });
     }
 
@@ -143,7 +186,8 @@ class DepositReqNotificationJob extends ReceiptNotificationJob {
       !c.mobileEnabled &&
       !c.emailEnabled &&
       !c.groupEnabled &&
-      !c.rmGroupEnabled
+      !c.rmGroupEnabled &&
+      !c.csdGroupEnabled
     ) {
       return stats;
     }
@@ -160,6 +204,13 @@ class DepositReqNotificationJob extends ReceiptNotificationJob {
     );
 
     for (const row of rows) {
+      try {
+        this.buildData(row);
+      } catch (error) {
+        stats.failed++;
+        console.error(`[${this.name} NOTIFY] invalid record ${row.Id}:`, error.message);
+        continue;
+      }
       if (
         sqlDate(row.SourceInTimestamp) < this.notifySince
       ) {

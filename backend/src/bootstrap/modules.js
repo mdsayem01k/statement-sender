@@ -15,12 +15,12 @@ const CityAgentModule = require('../modules/cityAgent');
 
 function buildRegistry(ctx) {
   const registry = new ModuleRegistry()
-    // .register(new TradeConfirmationModule(ctx))
+    .register(new TradeConfirmationModule(ctx))
     // .register(new PortfolioModule(ctx))
-    // .register(new DepositReqModule(ctx))
-    .register(new DepositVAModule(ctx))
-    // .register(new BoRegistrationModule(ctx))
-    // .register(new PaymentModule(ctx));
+    .register(new DepositReqModule(ctx))
+    // .register(new DepositVAModule(ctx))
+    .register(new BoRegistrationModule(ctx))
+    .register(new PaymentModule(ctx));
   // if (String(process.env.CITYAGENT_ENABLED || '').toLowerCase() === 'true') {
   //   registry.register(new CityAgentModule(ctx));
   // }

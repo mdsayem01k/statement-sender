@@ -2,13 +2,14 @@ const axios = require('axios');
 const MessageCenter = require('../../services/MessageCenter');
 const { toIntl } = require('../../utils/phone');
 const DepositReqGroupChannel = require('./DepositReqGroupChannel');
+const whatsappRequest = require('./whatsappRequest');
 
 class DepositReqMessageCenter extends MessageCenter {
   constructor(shared, settings) {
     const mobileChannels = new Map();
 
     if (settings.whatsappEnabled) {
-      const configured = shared.chains.MOBILE.find(
+      const configured = (shared.chains.MOBILE || []).find(
         entry => entry.channel.name === 'WHATSAPP'
       );
 
@@ -32,45 +33,29 @@ class DepositReqMessageCenter extends MessageCenter {
             timeoutMs
           } = original.config;
 
-          const response = await axios.post(
-            `${baseUrl}/BT/api/whatsapp/send-text`,
+          const root = String(baseUrl || '').trim().replace(/\/+$/, '');
+          if (!root || !String(sessionId || '').trim()) {
+            const error = new Error('WhatsApp URL or session is missing');
+            error.definitelyNotSent = true;
+            throw error;
+          }
+          return whatsappRequest(
+            axios,
+            `${root}/BT/api/whatsapp/send-text`,
             {
-              sessionId,
+              sessionId: String(sessionId).trim(),
               recipientJid: toIntl(recipient.mobile),
               message: text,
               investor: recipient.name
             },
-            {
-              timeout: timeoutMs
-            }
+            { timeout: timeoutMs }
           );
-
-          if (response.data?.success === false) {
-            const error = new Error(
-              String(
-                response.data.error ||
-                'WhatsApp request rejected'
-              ).split('\n')[0]
-            );
-
-            error.definitelyNotSent = true;
-
-            throw error;
-          }
-
-          if (response.data?.success !== true) {
-            throw new Error(
-              'Uncertain WhatsApp response; verify before retrying'
-            );
-          }
-
-          return response.data;
         }
       });
     }
 
     if (settings.smsEnabled) {
-      const configured = shared.chains.MOBILE.find(
+      const configured = (shared.chains.MOBILE || []).find(
         entry => entry.channel.name === 'SMS'
       );
 
@@ -126,7 +111,7 @@ class DepositReqMessageCenter extends MessageCenter {
     }
 
     const groupEnabled =
-      settings.rmGroupEnabled || settings.groupEnabled;
+      settings.rmGroupEnabled || settings.groupEnabled || settings.csdGroupEnabled;
 
     const configuredGroup = (
       shared.chains.GROUP || []
@@ -165,14 +150,59 @@ class DepositReqMessageCenter extends MessageCenter {
       testEmail: shared.testEmail,
       retryDelayMs: shared.retryDelayMs
     });
+    this.messageType = settings.messageType || 'RECEIPTREQ';
   }
 
   async send(options) {
-    const via = options.via || 'MOBILE';
+    const via = String(options.via || 'MOBILE').toUpperCase();
+    const recipient = { ...options.recipient };
+    recipient.role = String(recipient.role || 'INVESTOR').toUpperCase();
+    recipient.mobile = String(recipient.mobile || '').split(',')[0].trim();
+    recipient.email = String(recipient.email || '').split(',')[0].trim();
+    const reject = async error => {
+      try {
+        await this.audit.save({
+          ...options.meta,
+          recipientRole: recipient.role,
+          status: via === 'EMAIL' ? `${options.type}_EMAIL_FAILED` : `${options.type}_FAILED`,
+          statusCode: error.statusCode || 400,
+          errorMessage: error.message
+        });
+      } catch (auditError) {
+        console.error(`[${options.type} AUDIT]`, auditError.message);
+      }
+      throw error;
+    };
+    const groupRoles = ['RM_GROUP', 'FINACC', 'DEMO_GROUP', 'CSD'];
+    const correctRoute = recipient.role === 'INVESTOR'
+      ? ['MOBILE', 'EMAIL'].includes(via)
+      : groupRoles.includes(recipient.role) && via === 'GROUP';
+    if (options.type !== this.messageType || !correctRoute) {
+      const error = new Error(`Unsupported ${options.type} recipient route: ${recipient.role}/${via}`);
+      error.statusCode = 400;
+      error.errorType = 'INVALID_RECIPIENT_ROUTE';
+      error.definitelyNotSent = true;
+      return reject(error);
+    }
+    options = { ...options, via, recipient };
+    try {
+      const part = via === 'GROUP' && this.templates[options.type]?.textRM != null
+        ? 'textRM' : 'text';
+      this.render(options.type, options.data, part);
+      if (via === 'EMAIL') {
+        this.render(options.type, options.data, 'subject');
+        this.render(options.type, options.data, 'html');
+      }
+    } catch (error) {
+      error.statusCode = 400;
+      error.errorType = 'MESSAGE_TEMPLATE_VALIDATION';
+      error.definitelyNotSent = true;
+      return reject(error);
+    }
 
     if (
       via === 'GROUP' &&
-      ['RM_GROUP', 'FINACC', 'DEMO_GROUP'].includes(options.recipient?.role)
+      ['RM_GROUP', 'FINACC', 'DEMO_GROUP', 'CSD'].includes(options.recipient?.role)
     ) {
       const template = this.templates[options.type];
 
@@ -233,6 +263,13 @@ class DepositReqMessageCenter extends MessageCenter {
       });
 
       try {
+        const to = this.testMobile ? { ...recipient, mobile: this.testMobile } : recipient;
+        if (!entry.channel.accepts(to)) {
+          const error = new Error(`${entry.channel.name} does not accept the mobile number`);
+          error.statusCode = 400;
+          error.definitelyNotSent = true;
+          throw error;
+        }
         const result = await center.send({
           ...options,
           via: 'MOBILE'

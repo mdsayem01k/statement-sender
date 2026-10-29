@@ -44,7 +44,7 @@ class AuditLogRepository {
     }
     const { sql } = Db;
     const pool = await Db.pool();
-    const request = pool.request().input('prefix', sql.VarChar(500), `${env.app.auditReportBaseUrl}/api/report/pdf?BOID=`);
+    const request = pool.request().input('prefix', sql.VarChar(500), `${String(env.app.auditReportBaseUrl || '').replace(/\/+$/, '')}/api/confiramation?BOID=`);
     let query = 'SELECT concat(@prefix, encrypto_code) AS url, * FROM pdf_audit_logs WHERE 1=1';
     if (resolvedCode) { request.input('resolvedCode', sql.VarChar(100), resolvedCode); query += ' AND resolved_code = @resolvedCode'; }
     if (date) { request.input('tradeDate', sql.Date, date); query += ' AND trade_date = @tradeDate'; }

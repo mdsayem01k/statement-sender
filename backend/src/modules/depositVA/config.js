@@ -105,7 +105,22 @@ function config(env = process.env) {
     env.DEPOSITVA_RM_GROUP_SESSION_ID || ''
   ).trim();
 
+  const csdGroupEnabled = booleanSetting(env, 'DEPOSITVA_CSD_GROUP_ENABLED', false);
+  const csdGroup = cutoff(
+    env.DEPOSITVA_CSD_GROUP_NOTIFY_SINCE || notify.text,
+    'DEPOSITVA_CSD_GROUP_NOTIFY_SINCE'
+  );
+  const csdGroupName = String(env.DEPOSITVA_CSD_GROUP_NAME ?? 'CBL IT & CSD').trim();
+  const csdGroupSessionId = String(env.DEPOSITVA_CSD_GROUP_SESSION_ID ?? 'BT').trim();
+  if (csdGroupEnabled && (!csdGroupName || !csdGroupSessionId)) {
+    throw new Error('DEPOSITVA CSD group name and session must not be empty');
+  }
+
   return {
+    csdGroupEnabled,
+    csdGroupName,
+    csdGroupSessionId,
+    csdGroupSince: csdGroup.date,
     syncSince: sync.text,
     notifySince: notify.date,
     groupSince: financeGroup.date,

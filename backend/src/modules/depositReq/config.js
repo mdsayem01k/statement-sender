@@ -105,8 +105,23 @@ function config(env = process.env) {
     env.DEPOSITREQ_RM_GROUP_SESSION_ID || ''
   ).trim();
 
+  const csdGroupEnabled = booleanSetting(env, 'DEPOSITREQ_CSD_GROUP_ENABLED', false);
+  const csdGroup = cutoff(
+    env.DEPOSITREQ_CSD_GROUP_NOTIFY_SINCE || notify.text,
+    'DEPOSITREQ_CSD_GROUP_NOTIFY_SINCE'
+  );
+  const csdGroupName = String(env.DEPOSITREQ_CSD_GROUP_NAME ?? 'CBL IT & CSD').trim();
+  const csdGroupSessionId = String(env.DEPOSITREQ_CSD_GROUP_SESSION_ID ?? 'BT').trim();
+  if (csdGroupEnabled && (!csdGroupName || !csdGroupSessionId)) {
+    throw new Error('DEPOSITREQ CSD group name and session must not be empty');
+  }
+
   return {
     testGroup: String(env.DEPOSITREQ_TEST_GROUP || '').trim(),
+    csdGroupEnabled,
+    csdGroupName,
+    csdGroupSessionId,
+    csdGroupSince: csdGroup.date,
     syncSince: sync.text,
     notifySince: notify.date,
     groupSince: financeGroup.date,
@@ -118,6 +133,8 @@ function config(env = process.env) {
     emailEnabled,
     rmGroupEnabled,
     rmGroupSessionId,
+    financeGroupSessionId: String(env.DEPOSITREQ_FINACC_GROUP_SESSION_ID || '').trim(),
+    testGroupSessionId: String(env.DEPOSITREQ_TEST_GROUP_SESSION_ID || '').trim(),
     groupEnabled
   };
 }

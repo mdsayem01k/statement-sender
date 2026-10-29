@@ -10,12 +10,12 @@ class TradeConfirmationModule extends FolderPdfModule {
       ctx,
       type: 'TRADE_CONFIRMATION',
       label: 'Trade Confirmation',
-      linkTemplate: '/api/report/pdf?BOID={code}',          // same link as before: old messages keep working
-      pdfRoutes: ['/report/pdf'],
+      linkTemplate: '/api/confiramation?BOID={code}',
+      pdfRoutes: ['/confiramation', '/report/pdf'],
       adminPrefix: '/report',
       notifyRoute: '/notify/trade-confirmation',
       generateRoute: '/portfoliomap/generate',
-      legacy: { urls: '/report/portfolio-urls', send: '/send', mail: '/mail/trade-confirmation' },
+      legacy: { urls: '/report/portfolio-urls', send: '/sssend', mail: '/mail/trade-confirmation' },
       urlBase: ctx.env.app.statementsBaseUrl,
       locator: new PdfLocator({
         networkDir: paths.NETWORK_PDF_DIR,

@@ -105,6 +105,14 @@ class DepositVANotificationJob extends ReceiptNotificationJob {
       });
     }
 
+    if (this.settings.csdGroupEnabled && sourceDate >= this.settings.csdGroupSince) {
+      recipients.push({
+        role: 'CSD',
+        name: investor.name,
+        groupName: this.settings.csdGroupName
+      });
+    }
+
     return recipients;
   }
 
@@ -131,7 +139,8 @@ class DepositVANotificationJob extends ReceiptNotificationJob {
       !c.mobileEnabled &&
       !c.emailEnabled &&
       !c.groupEnabled &&
-      !c.rmGroupEnabled
+      !c.rmGroupEnabled &&
+      !c.csdGroupEnabled
     ) {
       return stats;
     }
