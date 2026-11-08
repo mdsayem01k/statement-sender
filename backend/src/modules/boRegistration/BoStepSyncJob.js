@@ -1,5 +1,7 @@
 const NotificationJob = require('../../core/NotificationJob');
+const MessageCenter = require('../../services/MessageCenter');
 
+const BoMessageCenter = require('./BoMessageCenter');
 function formatSubmissionTime(value) {
   const date = new Date(value);
   if (!value || Number.isNaN(date.getTime())) throw new Error('BO submission StepDate is missing or invalid');
@@ -12,12 +14,19 @@ function formatSubmissionTime(value) {
 
 class BoStepSyncJob extends NotificationJob {
   constructor({ syncSince = null, ...opts }) {
-    super(opts);
-    this.syncSince = syncSince || this.notifySince;
-    if (!this.syncSince) throw new Error('BO synchronization requires a starting date');
-    this.notifyRm = false;
-    this.notifyGroup = false;
+  super(opts);
+
+  this.syncSince = syncSince || this.notifySince;
+
+  if (!this.syncSince) {
+    throw new Error(
+      'BO synchronization requires a starting date'
+    );
   }
+
+  this.notifyRm = false;
+  this.notifyGroup = false;
+}
 
   async syncSource() {
     const repo = this.repository;

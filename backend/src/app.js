@@ -1,11 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const { sendHtmlError } = require('./utils/htmlError');
+const virtualAccountRoutes = require('./modules/virtualAccount/routes');
 
 // registry: a ModuleRegistry. Routes of every module are mounted under /api.
 function createApp(registry) {
   const app = express();
   app.use(cors());
+  app.use('/va',virtualAccountRoutes());
   app.use('/api/report/send-batches', express.json({ limit: '2mb' }));
   app.use(express.json());
 

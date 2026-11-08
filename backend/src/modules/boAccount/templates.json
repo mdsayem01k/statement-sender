@@ -1,0 +1,18 @@
+{
+  "INVESTOR": {
+    "text": "Dear Mr./Ms. {{investorName}} ({{investorCode}}),\nGreetings from Cty Brokerage Limited\n\nWe are pleased to inform you that your BO account has been successfully opened.\nInvestor Code: {{investorCode}}\nBOID: {{boid}}\nBO Acknowledgement: {{ackUrl}}\n\nRelationship Manager: {{rmName}}\nContact: {{rmMobile}}\nEmail: {{rmEmail}}\n\nYou will shortly receive your login ID and password for our online trading platform, Cty Infinity.\n\nThank you for choosing Cty Brokerage Limited. We appreciate your continued trust in our services.\n\nFor any queries, please contact 09678111111\nOr email: support@ctybrokerageltd.com\n{{dateTime}}",
+    "subject": "BO Account Opened - Cty Brokerage Limited",
+    "emailExtra": "To fund your trading account, please deposit the required amount into our regulator designated CCBA account at Cty Bank PLC, using your unique 13-digit Virtual Account (VA) Number provided below.\n\nYour Account Details\nAccount Name: Cty Brokerage Limited\nVirtual Account Number: {{vaNumber}}\n\nDeposit Instructions:\n1. Transfer the required funds to the above Virtual Account Number through the applicable Cty Bank deposit channel.\n2. Please ensure that you use your assigned 13-digit Virtual Account Number when making the deposit so that the funds can be identified and mapped to your trading account correctly.\n3. Once Cty Bank confirms the deposit details, we will process the transaction through our internal verification and Finance approval procedures.\n4. After successful approval, the deposited amount will be credited to your client Ledger and reflected in your Portfolio and Cty Infinity.\n5. You will receive a confirmation through your enabled notification channels once the deposit has been approved and the Ledger and Portfolio have been updated.\n\nImportant: Please use only the Virtual Account Number assigned to you. Do not use another client's Virtual Account Number when depositing funds.\n\nFor any assistance regarding your deposit, please contact your Relationship Manager.\n\nBest regards,\nCty Brokerage Limited\nClient Services Team\nContact: 09678111111\nEmail: support@ctybrokerageltd.com"
+  },
+  "RM": {
+    "text": "Dear Valued RM,\n\nA new BO account has been successfully opened.\nInvestor Code: {{investorCode}}\nBOID: {{boid}}\nInvestor Name: {{investorName}}\nContact: {{investorMobile}}\nEmail: {{investorEmail}}\n\n{{dateTime}}"
+  },
+  "AGENT": {
+    "subject": "BO Account Opened - {{registrationNo}}",
+    "text": "Dear Valued Cty Agent ({{agentRef}}),\n\nWe are pleased to inform you that a BO account has been successfully opened for RegID ({{registrationNo}}).\n\nThank you for choosing Cty Brokerage Limited.\n\nFor any queries, please contact 09678111111\nOr email: support@ctybrokerageltd.com\n{{dateTime}}"
+  },
+  "CITYBANK": {
+    "subject": "BO Account Opened - {{registrationNo}}",
+    "text": "Dear Valued Cty Bank,\n\nWe are pleased to inform you that a BO account has been successfully opened for RegID ({{registrationNo}}) from Agent ID: {{agentRef}}.\n\nThank you for choosing Cty Brokerage Limited.\n\nFor any queries, please contact 09678111111\nOr email: support@ctybrokerageltd.com\n{{dateTime}}"
+  }
+}

@@ -17,6 +17,7 @@ import {
 import ActionToolbar from './components/ActionToolbar';
 import { sendNotification } from './services/operations';
 import './App.css';
+import BoAccounts from './pages/boAccount/BoAccounts';
 
 const today = () =>
   new Intl.DateTimeFormat('en-CA', {
@@ -879,6 +880,7 @@ export default function App() {
               </NavLink>
             ))}
 
+            <NavLink to="/bo/accounts">BO Notifications</NavLink>
             <NavLink to="/logs">Access Logs</NavLink>
             <NavLink to="/reports">Daily Report</NavLink>
           </nav>
@@ -902,6 +904,7 @@ export default function App() {
 
           <main>
             <Routes>
+              <Route path="/bo/accounts" element={<BoAccounts />} />
               <Route
                 path="/"
                 element={

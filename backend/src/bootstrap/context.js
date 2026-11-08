@@ -20,8 +20,9 @@ function createContext() {
     chains: {
       // WhatsApp once, then SMS up to 3 times
       MOBILE: [
+         { channel: new SmsChannel(env.sms), attempts: env.notify.smsMaxAttempts },
         { channel: new WhatsAppChannel(env.whatsapp), attempts: 1 },
-        { channel: new SmsChannel(env.sms), attempts: env.notify.smsMaxAttempts },
+       
       ],
       EMAIL: [{ channel: new EmailChannel(env.mail), attempts: 1 }],
       GROUP: [{ channel: new WhatsAppGroupChannel(env.whatsapp), attempts: 1 }],

@@ -68,6 +68,7 @@ export function classify(status = '') {
 }
 
 export function moduleType(status = '') {
+  if (status.startsWith('BO_ACCOUNT_')) return 'BO_REGISTRATION';
   if (status.startsWith('RECEIPTREQ_')) {
     return 'RECEIPTREQ';
   }
