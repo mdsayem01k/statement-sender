@@ -21,7 +21,7 @@ function buildRegistry(ctx) {
     .register(new TradeConfirmationModule(ctx))
     // .register(new PortfolioModule(ctx))
     .register(new DepositReqModule(ctx))
-    // .register(new DepositVAModule(ctx))
+    .register(new DepositVAModule(ctx))
     .register(new BoRegistrationModule(ctx))
     .register(new PaymentModule(ctx));
   const approveEnabled = String(process.env.DEPOSITAPPROVE_ENABLED || 'false').trim().toLowerCase();

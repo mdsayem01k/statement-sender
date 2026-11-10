@@ -56,6 +56,7 @@ class DepositApproveRepository extends ReceiptRepository {
         WHERE p.PaymentDate=(SELECT DATEADD(DAY,1,(SELECT MAX(EODDate) FROM EOD_tblInvestorPortfolioValuesByDate)))
           AND p.PaymentTypeID = 1
           AND p.PayModeID NOT IN (4, 8)
+          and i.boid like '12045000%'
         ORDER BY p.PaymentDate, p.paymentID;`);
     const rows = result.recordset;
     const seen = new Set();

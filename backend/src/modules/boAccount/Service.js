@@ -234,6 +234,7 @@ class Service {
       rmEmail: d.rm.email,
 
       registrationNo: d.RegistrationNo,
+      RegistrationDate: d.RegistrationDate,
       agentRef: d.AgentRefCode,
 
       dateTime: time(
@@ -300,7 +301,7 @@ class Service {
           entry.html =
             `<div style="font-family:Arial,sans-serif">` +
             `<h2 style="background:#c8102e;color:white;padding:18px">` +
-            `Cty Brokerage Limited` +
+            `City Brokerage Limited` +
             `</h2>` +
             `<div style="border:1px solid #c8102e;padding:20px">` +
             escape(entry.text).replace(/\n/g, '<br>') +

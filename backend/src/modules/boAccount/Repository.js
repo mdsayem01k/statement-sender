@@ -7,6 +7,16 @@ const first = value =>
 const key = value =>
   String(value ?? '').trim().toUpperCase();
 
+// Returns date only, e.g. "2026-11-08"
+const formatDate = value => {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toISOString().slice(0, 10);
+};
+
 class Repository {
   constructor(settings) {
     this.settings = settings;
@@ -69,7 +79,7 @@ class Repository {
       return [];
     }
 
-    const bo = await Db.pool('BOpoolPromise');
+    const bo = await Db.pool('poolPromise');
     const local = await Db.pool('poolPromise');
 
     const registrations = new Map();
@@ -107,6 +117,7 @@ class Repository {
           ma.CustomCode AS InvestorCode,
           ma.BORegistrationMasterID,
           ma.BORegistrationNo,
+          ma.RegistrationDate,
           inv.isReferBO,
           inv.ReferBO AS AgentRefCode
         FROM dbo.Investor_tblBORegistrationMaster ma
@@ -231,6 +242,9 @@ class Repository {
 
         RegistrationNo:
           registration?.BORegistrationNo || '',
+
+        RegistrationDate:
+          formatDate(registration?.RegistrationDate),
 
         referral,
 
